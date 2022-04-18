@@ -36,8 +36,6 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 # download the binary from latest release in github.com/metal3d/goreorder
-cat <<EOF
 curl -L ${GIT_REPOSITORY}/${GIT_REPONAME}/releases/latest/download/${TARGET} -o $BIN_PATH/$BIN_NAME && \
     chmod +x $BIN_PATH/$BIN_NAME && \
     echo "goreorder has been installed to $BIN_PATH/$BIN_NAME"
-EOF
