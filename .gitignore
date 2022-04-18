@@ -1,2 +1,4 @@
 go.sum
 examples/*
+./goreorder
+dist/*

@@ -17,6 +17,8 @@ import (
 	"strings"
 )
 
+var version = "master" // changed at compilation time
+
 // GoType represents a struct, method or constructor. The "SourceCode" field contains the doc comment and source in Go, formated and ready to be injected in the source file.
 type GoType struct {
 	// Name of the struct, method or constructor
@@ -297,6 +299,7 @@ func main() {
 	verbose := false
 	outputFile := ""
 	reorderStructs := false
+	showVersion := false
 
 	flag.StringVar(&dirname, "dir", dirname, "directory to scan")
 	flag.StringVar(&filename, "file", filename, "file to process, deactivates -dir if set")
@@ -305,7 +308,13 @@ func main() {
 	flag.StringVar(&formatExecutable, "format", "gofmt", "the executable to use to format the output")
 	flag.StringVar(&outputFile, "output", filename, "output file (default to the original file, only works with -file)")
 	flag.BoolVar(&verbose, "verbose", verbose, "get some informations while processing")
+	flag.BoolVar(&showVersion, "version", showVersion, "show version ("+version+")")
 	flag.Parse()
+
+	if showVersion {
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	// only allow gofmt or goimports
 	if formatExecutable != "gofmt" && formatExecutable != "goimports" {
