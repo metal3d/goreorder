@@ -76,6 +76,11 @@ func Parse(filename, formatCommand string) (map[string][]*GoType, map[string][]*
 			if d.Tok == token.TYPE {
 				for _, spec := range d.Specs {
 					if s, ok := spec.(*ast.TypeSpec); ok {
+						// is it a struct?
+						if s.Type.(*ast.StructType) == nil {
+							// no... skip
+							continue
+						}
 						typeDef := &GoType{
 							Name:        s.Name.Name,
 							OpeningLine: fset.Position(d.Pos()).Line,

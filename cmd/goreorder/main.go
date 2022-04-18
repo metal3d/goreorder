@@ -3,13 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"goreorder/ordering"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/metal3d/goreorder/ordering"
 )
 
 var version = "master" // changed at compilation time
