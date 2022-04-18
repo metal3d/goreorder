@@ -30,3 +30,15 @@ By default, the tool will scan everything in the current directory and output re
 
 Get release or use `go install github.com/metal3d/goreorder@latest`
 
+If you want to install from source:
+
+```
+go install -v github.com/metal3d/goreorder/cmd/
+```
+
+You can also get this repository and type:
+
+```
+make install
+```
+

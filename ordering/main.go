@@ -1,23 +1,18 @@
-package main
+package ordering
 
 import (
 	"crypto/sha256"
 	"errors"
-	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strings"
 )
-
-var version = "master" // changed at compilation time
 
 // GoType represents a struct, method or constructor. The "SourceCode" field contains the doc comment and source in Go, formated and ready to be injected in the source file.
 type GoType struct {
@@ -67,7 +62,9 @@ func Parse(filename, formatCommand string) (map[string][]*GoType, map[string][]*
 
 				// Get the method source code
 				comments := GetMethodComments(d)
-				method.SourceCode = strings.Join(comments, "\n") + "\n" + strings.Join(sourceLines[method.OpeningLine-1:method.ClosingLine], "\n")
+				method.SourceCode = strings.Join(comments, "\n") +
+					"\n" +
+					strings.Join(sourceLines[method.OpeningLine-1:method.ClosingLine], "\n")
 				method.OpeningLine -= len(comments)
 
 				// Add the method to the map
@@ -85,7 +82,9 @@ func Parse(filename, formatCommand string) (map[string][]*GoType, map[string][]*
 							ClosingLine: fset.Position(d.End()).Line,
 						}
 						comments := GetTypeComments(d)
-						typeDef.SourceCode = strings.Join(comments, "\n") + "\n" + strings.Join(sourceLines[typeDef.OpeningLine-1:typeDef.ClosingLine], "\n")
+						typeDef.SourceCode = strings.Join(comments, "\n") +
+							"\n" +
+							strings.Join(sourceLines[typeDef.OpeningLine-1:typeDef.ClosingLine], "\n")
 						typeDef.OpeningLine -= len(comments)
 
 						structTypes[s.Name.Name] = typeDef
@@ -125,7 +124,9 @@ func Parse(filename, formatCommand string) (map[string][]*GoType, map[string][]*
 
 						// Get the method source code
 						comments := GetMethodComments(d)
-						method.SourceCode = strings.Join(comments, "\n") + "\n" + strings.Join(sourceLines[method.OpeningLine-1:method.ClosingLine], "\n")
+						method.SourceCode = strings.Join(comments, "\n") +
+							"\n" +
+							strings.Join(sourceLines[method.OpeningLine-1:method.ClosingLine], "\n")
 						method.OpeningLine -= len(comments)
 
 						// Add the method to the constructors map
@@ -289,91 +290,4 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool) (string,
 	}
 
 	return string(content), nil
-}
-
-func main() {
-	dirname := "."
-	filename := ""
-	formatExecutable := "gofmt"
-	write := false
-	verbose := false
-	outputFile := ""
-	reorderStructs := false
-	showVersion := false
-
-	flag.StringVar(&dirname, "dir", dirname, "directory to scan")
-	flag.StringVar(&filename, "file", filename, "file to process, deactivates -dir if set")
-	flag.BoolVar(&reorderStructs, "reorder-structs", reorderStructs, "reorder structs by name (default: false)")
-	flag.BoolVar(&write, "write", write, "write the output to the file, if not set it will print to stdout (default: false)")
-	flag.StringVar(&formatExecutable, "format", "gofmt", "the executable to use to format the output")
-	flag.StringVar(&outputFile, "output", filename, "output file (default to the original file, only works with -file)")
-	flag.BoolVar(&verbose, "verbose", verbose, "get some informations while processing")
-	flag.BoolVar(&showVersion, "version", showVersion, "show version ("+version+")")
-	flag.Parse()
-
-	if showVersion {
-		fmt.Println(version)
-		os.Exit(0)
-	}
-
-	// only allow gofmt or goimports
-	if formatExecutable != "gofmt" && formatExecutable != "goimports" {
-		log.Fatal("Only gofmt or goimports are allowed as format executable")
-	}
-
-	// check if the executable exists
-	if _, err := exec.LookPath(formatExecutable); err != nil {
-		log.Fatal("The executable '" + formatExecutable + "' does not exist")
-	}
-
-	if filename != "" {
-		// do not process test files
-		if strings.HasSuffix(filename, "_test.go") {
-			log.Fatal("Cannot process test files")
-		}
-
-		output, err := ReorderSource(filename, formatExecutable, reorderStructs)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if write {
-			if verbose {
-				fmt.Println("Writing to file: " + outputFile)
-			}
-			err = ioutil.WriteFile(outputFile, []byte(output), 0644)
-			if err != nil {
-				log.Fatal(err)
-			}
-		} else {
-			fmt.Println(output)
-		}
-
-	} else {
-		// Get all files recursively
-		files, err := filepath.Glob(filepath.Join(dirname, "*.go"))
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, file := range files {
-			if strings.HasSuffix(file, "_test.go") {
-				continue
-			}
-			if verbose {
-				log.Println(file)
-			}
-			output, err := ReorderSource(file, formatExecutable, reorderStructs)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			if write {
-				err = ioutil.WriteFile(file, []byte(output), 0644)
-				if err != nil {
-					log.Fatal(err)
-				}
-			} else {
-				fmt.Println(output)
-			}
-		}
-	}
 }

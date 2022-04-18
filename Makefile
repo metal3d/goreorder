@@ -6,15 +6,16 @@ VERSION=$(shell git describe --exact-match --tags $(CUR_SHA) 2>/dev/null || echo
 
 CC=go
 CC_OPTS=-ldflags "-X main.version=$(VERSION)"
+PACKAGE:=goreorder/cmd/goreorder
 
 install:
-	go install -v $(CC_OPTS) ./...
+	go install -v $(CC_OPTS) $(PACKAGE)
 
 uninstall:
-	go clean -r -i ./...
+	go clean -i ./...
 
 dev-build:
-	go build -v $(CC_OPTS) .
+	go build -v $(CC_OPTS) ./cmd/*.go
 
 dist: clean-dist
 	mkdir -p dist
@@ -25,16 +26,16 @@ dist: clean-dist
 
 
 dist/goreorder-linux-amd64:
-	GOOS=linux GOARCH=amd64 $(CC) build $(CC_OPTS) -o $@
+	GOOS=linux GOARCH=amd64 $(CC) build $(CC_OPTS) $(PACKAGE) -o $@
 
 dist/goreorder-darwin-amd64:
-	GOOS=darwin GOARCH=amd64 $(CC) build $(CC_OPTS) -o $@
+	GOOS=darwin GOARCH=amd64 $(CC) build $(CC_OPTS) $(PACKAGE) -o $@
 
 dist/goreorder-windows-amd64.exe:
-	GOOS=windows GOARCH=amd64 $(CC) build $(CC_OPTS) -o $@
+	GOOS=windows GOARCH=amd64 $(CC) build $(CC_OPTS) $(PACKAGE) -o $@
 
 dist/goreorder-freebsd-amd64:
-	GOOS=freebsd GOARCH=amd64 $(CC) build $(CC_OPTS) -o $@
+	GOOS=freebsd GOARCH=amd64 $(CC) build $(CC_OPTS) $(PACKAGE) -o $@
 
 
 clean-dist:
