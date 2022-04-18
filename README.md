@@ -1,3 +1,5 @@
+[![Coverage Status](https://coveralls.io/repos/github/metal3d/goreorder/badge.svg?branch=main)](https://coveralls.io/github/metal3d/goreorder?branch=main)
+
 # EXPERIMENTAL go source reoreding
 
 This tool is EXPERIMENTAL! We strongly recommend to backup (or use git to commit your changes) before to try it.
