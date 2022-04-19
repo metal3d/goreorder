@@ -8,7 +8,6 @@ import (
 	"go/parser"
 	"go/token"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"sort"
@@ -49,7 +48,6 @@ func Parse(filename, formatCommand string, src interface{}) (map[string][]*GoTyp
 		sourceCode = src.([]byte)
 	}
 	sourceLines := strings.Split(string(sourceCode), "\n")
-	log.Println(sourceLines)
 
 	// Itrerate over all the top level declarations in the file to find "struct" declarations
 

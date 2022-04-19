@@ -109,7 +109,7 @@ func TestReorder(t *testing.T) {
 	defer teardown(filename)
 
 	// reorder the file
-	content, err := ReorderSource(filename, "gofmt", true)
+	content, err := ReorderSource(filename, "gofmt", true, nil)
 	if err != nil {
 		t.Error(err)
 	}

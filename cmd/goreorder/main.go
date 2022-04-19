@@ -62,7 +62,6 @@ func main() {
 	}
 
 	if filename != "" {
-		log.Println("PROCESS")
 		// do not process test files
 		if strings.HasSuffix(filename, "_test.go") {
 			log.Fatal("Cannot process test files")
