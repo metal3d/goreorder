@@ -129,9 +129,62 @@ func TestNoStruct(t *testing.T) {
     `
 	content, err := ReorderSource(source, "gofmt", true, []byte(source))
 	if err == nil {
+		t.Error("Expected error for no found struct")
+	}
+	if content != source {
+		t.Errorf("Expected:\n%s\nGot:\n%s\n", source, content)
+	}
+}
+
+func TestBadFile(t *testing.T) {
+	_, err := ReorderSource("/tmp/foo.go", "gofmt", true, nil)
+	if err == nil {
+		t.Error("Expected error")
+	}
+}
+
+func TestSpecialTypes(t *testing.T) {
+	const source = `package main
+    type foo int
+    type bar int
+
+    func main() {
+        fmt.Println("nothing")
+    }
+    `
+	content, err := ReorderSource(source, "gofmt", true, []byte(source))
+	if err == nil {
 		t.Error("Expected error")
 	}
 	if content != source {
 		t.Errorf("Expected:\n%s\nGot:\n%s\n", source, content)
 	}
+}
+
+func TestMethodForNotFoundStruct(t *testing.T) {
+	const source = `package main
+
+import "fmt"
+
+type Foo struct {
+	idbar   int
+	namebar string
+}
+
+func main() {
+	fmt.Println("nothing")
+}
+
+// method for not found struct
+func (f *Bar) FooMethod1() {
+	fmt.Println("FooMethod1")
+}`
+	content, err := ReorderSource("foo.go", "gofmt", true, []byte(source))
+	if err != nil {
+		t.Error(err)
+	}
+	if len(content) == 0 {
+		t.Errorf("Expected:\n%s\nGot:\n%s\n", source, content)
+	}
+
 }

@@ -40,10 +40,8 @@ func Parse(filename, formatCommand string, src interface{}) (map[string][]*GoTyp
 
 	var sourceCode []byte
 	if src == nil {
-		sourceCode, err = ioutil.ReadFile(filename)
-		if err != nil {
-			return nil, nil, nil, err
-		}
+		// error should never happen as Parse() worked
+		sourceCode, _ = ioutil.ReadFile(filename)
 	} else {
 		sourceCode = src.([]byte)
 	}
@@ -58,8 +56,24 @@ func Parse(filename, formatCommand string, src interface{}) (map[string][]*GoTyp
 			if d.Recv != nil {
 				// Method
 
+				if d.Recv.List == nil || len(d.Recv.List) == 0 {
+					continue
+				}
+				if d.Recv.List[0].Type == nil {
+					continue
+				}
+				if _, ok := d.Recv.List[0].Type.(*ast.StarExpr); !ok {
+					continue
+				}
+				if d.Recv.List[0].Type.(*ast.StarExpr).X == nil {
+					continue
+				}
+				if _, ok := d.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident); !ok {
+					continue
+				}
+
 				// in "func (T) Method(...) ..." get the type T name
-				structName := d.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident).Obj.Name
+				structName := d.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident).Name
 
 				// Create a new method
 				method := &GoType{
@@ -184,16 +198,18 @@ func GetTypeComments(d *ast.GenDecl) []string {
 // sha256 of the source. This is made to not lose the original source code "lenght" while we reinject the ordered source code. Then, we finally
 // remove thses lines from the source code.
 func ReorderSource(filename, formatCommand string, reorderStructs bool, src interface{}) (string, error) {
-	methods, constructors, structs, err := Parse(filename, formatCommand, src)
-
 	// in all cases, we must return the original source code if an error occurs
 	// get the content of the file
 	var content []byte
+	var err error
+
+	methods, constructors, structs, err := Parse(filename, formatCommand, src)
+
 	if src == nil {
-		var err error
-		content, err = ioutil.ReadFile(filename)
-		if err != nil {
-			return "", err
+		var readErr error
+		content, readErr = ioutil.ReadFile(filename)
+		if readErr != nil {
+			return "", readErr
 		}
 	} else {
 		content = src.([]byte)
@@ -202,6 +218,7 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool, src inte
 	if err != nil {
 		return string(content), err
 	}
+
 	if len(structs) == 0 {
 		return string(content), errors.New("No structs found in " + filename + ", cannot reorder")
 	}
@@ -287,27 +304,25 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool, src inte
 	// write in a temporary file and use "gofmt" to format it
 	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {
-		return "", err
+		return string(content), err
 	}
 	defer os.Remove(tmpfile.Name()) // clean up
+	defer tmpfile.Close()
 
 	if _, err := tmpfile.Write([]byte(output)); err != nil {
-		return "", err
-	}
-	if err := tmpfile.Close(); err != nil {
-		return "", err
+		return string(content), err
 	}
 
 	cmd := exec.Command(formatCommand, "-w", tmpfile.Name())
 	if err := cmd.Run(); err != nil {
-		return "", err
+		return string(content), err
 	}
 
 	// read the temporary file
-	content, err = ioutil.ReadFile(tmpfile.Name())
+	newcontent, err := ioutil.ReadFile(tmpfile.Name())
 	if err != nil {
-		return "", err
+		return string(content), err
 	}
 
-	return string(content), nil
+	return string(newcontent), nil
 }
