@@ -27,9 +27,9 @@ type GoType struct {
 }
 
 // Parse the given file and return the methods, constructors and structs.
-func Parse(filename, formatCommand string) (map[string][]*GoType, map[string][]*GoType, map[string]*GoType, error) {
+func Parse(filename, formatCommand string, src interface{}) (map[string][]*GoType, map[string][]*GoType, map[string]*GoType, error) {
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, filename, nil, parser.ParseComments)
+	f, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -38,7 +38,13 @@ func Parse(filename, formatCommand string) (map[string][]*GoType, map[string][]*
 	constructors := make(map[string][]*GoType)
 	structTypes := make(map[string]*GoType)
 
-	sourceCode, _ := ioutil.ReadFile(filename)
+	var sourceCode []byte
+	if src == nil {
+		// error should never happen as Parse() worked
+		sourceCode, _ = ioutil.ReadFile(filename)
+	} else {
+		sourceCode = src.([]byte)
+	}
 	sourceLines := strings.Split(string(sourceCode), "\n")
 
 	// Itrerate over all the top level declarations in the file to find "struct" declarations
@@ -50,8 +56,24 @@ func Parse(filename, formatCommand string) (map[string][]*GoType, map[string][]*
 			if d.Recv != nil {
 				// Method
 
+				if d.Recv.List == nil || len(d.Recv.List) == 0 {
+					continue
+				}
+				if d.Recv.List[0].Type == nil {
+					continue
+				}
+				if _, ok := d.Recv.List[0].Type.(*ast.StarExpr); !ok {
+					continue
+				}
+				if d.Recv.List[0].Type.(*ast.StarExpr).X == nil {
+					continue
+				}
+				if _, ok := d.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident); !ok {
+					continue
+				}
+
 				// in "func (T) Method(...) ..." get the type T name
-				structName := d.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident).Obj.Name
+				structName := d.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident).Name
 
 				// Create a new method
 				method := &GoType{
@@ -77,7 +99,7 @@ func Parse(filename, formatCommand string) (map[string][]*GoType, map[string][]*
 				for _, spec := range d.Specs {
 					if s, ok := spec.(*ast.TypeSpec); ok {
 						// is it a struct?
-						if s.Type.(*ast.StructType) == nil {
+						if _, ok := s.Type.(*ast.StructType); !ok {
 							// no... skip
 							continue
 						}
@@ -175,14 +197,30 @@ func GetTypeComments(d *ast.GenDecl) []string {
 // use the Parse() function to extract types, methods and constructors. Then we replace the original source code with a comment containing the
 // sha256 of the source. This is made to not lose the original source code "lenght" while we reinject the ordered source code. Then, we finally
 // remove thses lines from the source code.
-func ReorderSource(filename, formatCommand string, reorderStructs bool) (string, error) {
-	methods, constructors, structs, err := Parse(filename, formatCommand)
+func ReorderSource(filename, formatCommand string, reorderStructs bool, src interface{}) (string, error) {
+	// in all cases, we must return the original source code if an error occurs
+	// get the content of the file
+	var content []byte
+	var err error
+
+	methods, constructors, structs, err := Parse(filename, formatCommand, src)
+
+	if src == nil {
+		var readErr error
+		content, readErr = ioutil.ReadFile(filename)
+		if readErr != nil {
+			return "", readErr
+		}
+	} else {
+		content = src.([]byte)
+	}
 
 	if err != nil {
-		return "", err
+		return string(content), err
 	}
+
 	if len(structs) == 0 {
-		return "", errors.New("No structs found in " + filename + ", cannot reorder")
+		return string(content), errors.New("No structs found in " + filename + ", cannot reorder")
 	}
 
 	// sort methods by name
@@ -204,12 +242,6 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool) (string,
 	}
 	if reorderStructs {
 		sort.Strings(structNames)
-	}
-	// get the content of the file
-	content, err := ioutil.ReadFile(filename)
-
-	if err != nil {
-		return "", err
 	}
 
 	// Get the source code signature
@@ -272,27 +304,25 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool) (string,
 	// write in a temporary file and use "gofmt" to format it
 	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {
-		return "", err
+		return string(content), err
 	}
 	defer os.Remove(tmpfile.Name()) // clean up
+	defer tmpfile.Close()
 
 	if _, err := tmpfile.Write([]byte(output)); err != nil {
-		return "", err
-	}
-	if err := tmpfile.Close(); err != nil {
-		return "", err
+		return string(content), err
 	}
 
 	cmd := exec.Command(formatCommand, "-w", tmpfile.Name())
 	if err := cmd.Run(); err != nil {
-		return "", err
+		return string(content), err
 	}
 
 	// read the temporary file
-	content, err = ioutil.ReadFile(tmpfile.Name())
+	newcontent, err := ioutil.ReadFile(tmpfile.Name())
 	if err != nil {
-		return "", err
+		return string(content), err
 	}
 
-	return string(content), nil
+	return string(newcontent), nil
 }
