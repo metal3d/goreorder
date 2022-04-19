@@ -8,6 +8,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"sort"
@@ -27,9 +28,9 @@ type GoType struct {
 }
 
 // Parse the given file and return the methods, constructors and structs.
-func Parse(filename, formatCommand string) (map[string][]*GoType, map[string][]*GoType, map[string]*GoType, error) {
+func Parse(filename, formatCommand string, src interface{}) (map[string][]*GoType, map[string][]*GoType, map[string]*GoType, error) {
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, filename, nil, parser.ParseComments)
+	f, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -38,8 +39,17 @@ func Parse(filename, formatCommand string) (map[string][]*GoType, map[string][]*
 	constructors := make(map[string][]*GoType)
 	structTypes := make(map[string]*GoType)
 
-	sourceCode, _ := ioutil.ReadFile(filename)
+	var sourceCode []byte
+	if src == nil {
+		sourceCode, err = ioutil.ReadFile(filename)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	} else {
+		sourceCode = src.([]byte)
+	}
 	sourceLines := strings.Split(string(sourceCode), "\n")
+	log.Println(sourceLines)
 
 	// Itrerate over all the top level declarations in the file to find "struct" declarations
 
@@ -77,7 +87,7 @@ func Parse(filename, formatCommand string) (map[string][]*GoType, map[string][]*
 				for _, spec := range d.Specs {
 					if s, ok := spec.(*ast.TypeSpec); ok {
 						// is it a struct?
-						if s.Type.(*ast.StructType) == nil {
+						if _, ok := s.Type.(*ast.StructType); !ok {
 							// no... skip
 							continue
 						}
@@ -175,8 +185,8 @@ func GetTypeComments(d *ast.GenDecl) []string {
 // use the Parse() function to extract types, methods and constructors. Then we replace the original source code with a comment containing the
 // sha256 of the source. This is made to not lose the original source code "lenght" while we reinject the ordered source code. Then, we finally
 // remove thses lines from the source code.
-func ReorderSource(filename, formatCommand string, reorderStructs bool) (string, error) {
-	methods, constructors, structs, err := Parse(filename, formatCommand)
+func ReorderSource(filename, formatCommand string, reorderStructs bool, src interface{}) (string, error) {
+	methods, constructors, structs, err := Parse(filename, formatCommand, src)
 
 	if err != nil {
 		return "", err
@@ -206,10 +216,15 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool) (string,
 		sort.Strings(structNames)
 	}
 	// get the content of the file
-	content, err := ioutil.ReadFile(filename)
-
-	if err != nil {
-		return "", err
+	var content []byte
+	if src == nil {
+		var err error
+		content, err = ioutil.ReadFile(filename)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		content = src.([]byte)
 	}
 
 	// Get the source code signature

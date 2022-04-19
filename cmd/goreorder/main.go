@@ -50,13 +50,25 @@ func main() {
 		log.Fatal("The executable '" + formatExecutable + "' does not exist")
 	}
 
+	// is there something in stdin?
+	var input []byte
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		// yes, read it
+		input, _ = ioutil.ReadAll(os.Stdin)
+		filename = "stdin.go"
+		dirname = ""
+		write = false
+	}
+
 	if filename != "" {
+		log.Println("PROCESS")
 		// do not process test files
 		if strings.HasSuffix(filename, "_test.go") {
 			log.Fatal("Cannot process test files")
 		}
 
-		output, err := ordering.ReorderSource(filename, formatExecutable, reorderStructs)
+		output, err := ordering.ReorderSource(filename, formatExecutable, reorderStructs, input)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -85,7 +97,7 @@ func main() {
 			if verbose {
 				log.Println(file)
 			}
-			output, err := ordering.ReorderSource(file, formatExecutable, reorderStructs)
+			output, err := ordering.ReorderSource(file, formatExecutable, reorderStructs, input)
 			if err != nil {
 				log.Println(err)
 				continue
