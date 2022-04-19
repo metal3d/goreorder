@@ -120,3 +120,18 @@ func TestReorder(t *testing.T) {
 	}
 
 }
+
+func TestNoStruct(t *testing.T) {
+	const source = `package main
+    func main() {
+        fmt.Println("nothing")
+    }
+    `
+	content, err := ReorderSource(source, "gofmt", true, []byte(source))
+	if err == nil {
+		t.Error("Expected error")
+	}
+	if content != source {
+		t.Errorf("Expected:\n%s\nGot:\n%s\n", source, content)
+	}
+}

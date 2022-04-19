@@ -186,11 +186,24 @@ func GetTypeComments(d *ast.GenDecl) []string {
 func ReorderSource(filename, formatCommand string, reorderStructs bool, src interface{}) (string, error) {
 	methods, constructors, structs, err := Parse(filename, formatCommand, src)
 
+	// in all cases, we must return the original source code if an error occurs
+	// get the content of the file
+	var content []byte
+	if src == nil {
+		var err error
+		content, err = ioutil.ReadFile(filename)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		content = src.([]byte)
+	}
+
 	if err != nil {
-		return "", err
+		return string(content), err
 	}
 	if len(structs) == 0 {
-		return "", errors.New("No structs found in " + filename + ", cannot reorder")
+		return string(content), errors.New("No structs found in " + filename + ", cannot reorder")
 	}
 
 	// sort methods by name
@@ -212,17 +225,6 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool, src inte
 	}
 	if reorderStructs {
 		sort.Strings(structNames)
-	}
-	// get the content of the file
-	var content []byte
-	if src == nil {
-		var err error
-		content, err = ioutil.ReadFile(filename)
-		if err != nil {
-			return "", err
-		}
-	} else {
-		content = src.([]byte)
 	}
 
 	// Get the source code signature
