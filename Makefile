@@ -20,7 +20,7 @@ uninstall:
 	go clean -i ./...
 
 dev-build:
-	go build -v $(CC_OPTS) ./cmd/*.go
+	go build -v $(CC_OPTS) -o goreorder ./cmd/goreorder/*.go 
 
 .ONESHELL:
 dist: clean-dist
