@@ -87,10 +87,13 @@ func main() {
 		// Get all files recursively
 		files, err := filepath.Glob(filepath.Join(dirname, "*.go"))
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("Get files:", err)
 		}
 		for _, file := range files {
 			if strings.HasSuffix(file, "_test.go") {
+				if verbose {
+					log.Println("Skipping test file: " + file)
+				}
 				continue
 			}
 			if verbose {
@@ -98,13 +101,13 @@ func main() {
 			}
 			output, err := ordering.ReorderSource(file, formatExecutable, reorderStructs, input)
 			if err != nil {
-				log.Println(err)
+				log.Println("Orderging:", err)
 				continue
 			}
 			if write {
 				err = ioutil.WriteFile(file, []byte(output), 0644)
 				if err != nil {
-					log.Fatal(err)
+					log.Fatal("Write:", err)
 				}
 			} else {
 				fmt.Println(output)

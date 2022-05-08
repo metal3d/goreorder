@@ -29,6 +29,7 @@ type GoType struct {
 // Parse the given file and return the methods, constructors and structs.
 func Parse(filename, formatCommand string, src interface{}) (map[string][]*GoType, map[string][]*GoType, map[string]*GoType, error) {
 	fset := token.NewFileSet()
+
 	f, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
 	if err != nil {
 		return nil, nil, nil, err
@@ -202,21 +203,19 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool, src inte
 	// get the content of the file
 	var content []byte
 	var err error
-
-	methods, constructors, structs, err := Parse(filename, formatCommand, src)
-
-	if src == nil {
-		var readErr error
-		content, readErr = ioutil.ReadFile(filename)
-		if readErr != nil {
-			return "", readErr
+	if src == nil || len(src.([]byte)) == 0 {
+		content, err = ioutil.ReadFile(filename)
+		if err != nil {
+			return "", err
 		}
 	} else {
 		content = src.([]byte)
 	}
 
+	methods, constructors, structs, err := Parse(filename, formatCommand, content)
+
 	if err != nil {
-		return string(content), err
+		return string(content), errors.New("Error parsing source: " + err.Error())
 	}
 
 	if len(structs) == 0 {
@@ -304,13 +303,13 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool, src inte
 	// write in a temporary file and use "gofmt" to format it
 	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {
-		return string(content), err
+		return string(content), errors.New("Failed to create temp file: " + err.Error())
 	}
 	defer os.Remove(tmpfile.Name()) // clean up
 	defer tmpfile.Close()
 
 	if _, err := tmpfile.Write([]byte(output)); err != nil {
-		return string(content), err
+		return string(content), errors.New("Failed to write to temporary file: " + err.Error())
 	}
 
 	cmd := exec.Command(formatCommand, "-w", tmpfile.Name())
@@ -321,7 +320,7 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool, src inte
 	// read the temporary file
 	newcontent, err := ioutil.ReadFile(tmpfile.Name())
 	if err != nil {
-		return string(content), err
+		return string(content), errors.New("Read Temporary File error: " + err.Error())
 	}
 
 	return string(newcontent), nil
