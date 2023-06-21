@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -47,8 +48,6 @@ func Parse(filename, formatCommand string, src interface{}) (map[string][]*GoTyp
 		sourceCode = src.([]byte)
 	}
 	sourceLines := strings.Split(string(sourceCode), "\n")
-
-	// Itrerate over all the top level declarations in the file to find "struct" declarations
 
 	// Iterate over all the top-level declarations in the file. Only find methods for types, set the type as key and the method as value
 	for _, decl := range f.Decls {
@@ -198,7 +197,7 @@ func GetTypeComments(d *ast.GenDecl) []string {
 // use the Parse() function to extract types, methods and constructors. Then we replace the original source code with a comment containing the
 // sha256 of the source. This is made to not lose the original source code "lenght" while we reinject the ordered source code. Then, we finally
 // remove thses lines from the source code.
-func ReorderSource(filename, formatCommand string, reorderStructs bool, src interface{}) (string, error) {
+func ReorderSource(filename, formatCommand string, reorderStructs bool, src interface{}, diff bool) (string, error) {
 	// in all cases, we must return the original source code if an error occurs
 	// get the content of the file
 	var content []byte
@@ -305,8 +304,10 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool, src inte
 	if err != nil {
 		return string(content), errors.New("Failed to create temp file: " + err.Error())
 	}
-	defer os.Remove(tmpfile.Name()) // clean up
-	defer tmpfile.Close()
+	defer func() {
+		os.Remove(tmpfile.Name()) // clean up
+		tmpfile.Close()
+	}()
 
 	if _, err := tmpfile.Write([]byte(output)); err != nil {
 		return string(content), errors.New("Failed to write to temporary file: " + err.Error())
@@ -323,5 +324,45 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool, src inte
 		return string(content), errors.New("Read Temporary File error: " + err.Error())
 	}
 
+	if diff {
+		// create a and b directories in temporary directory
+		tmpDir, err := ioutil.TempDir("", "")
+		if err != nil {
+			return string(content), errors.New("Failed to create temp directory: " + err.Error())
+		}
+		defer os.RemoveAll(tmpDir) // clean up
+
+		// write original content in a
+		dirA := filepath.Join(tmpDir, "a")
+		dirB := filepath.Join(tmpDir, "b")
+
+		// get the filepath directory from filename and create it in a and b
+		dirA = filepath.Join(dirA, filepath.Dir(filename))
+		dirB = filepath.Join(dirB, filepath.Dir(filename))
+
+		// and now, it's the same as before
+		os.MkdirAll(dirA, 0755)
+		os.MkdirAll(dirB, 0755)
+
+		fba := filepath.Join(dirA, filepath.Base(filename))
+		if err := ioutil.WriteFile(fba, content, 0644); err != nil {
+			return string(content), errors.New("Failed to write to temporary file: " + err.Error())
+		}
+		fbb := filepath.Join(dirB, filepath.Base(filename))
+		if err := ioutil.WriteFile(fbb, newcontent, 0644); err != nil {
+			return string(content), errors.New("Failed to write to temporary file: " + err.Error())
+		}
+		// run diff -Naur a b
+		cmd := exec.Command("diff", "-Naur", dirA, dirB)
+		out, err := cmd.CombinedOutput()
+		if cmd.ProcessState.ExitCode() <= 1 { // 1 is valid, it means there are differences, 0 means no differences
+			// remplace tmp/a/ and tmp/b/ with a/ and b/ in the diff output
+			// to make it more readable and easier to apply with patch -p1
+			out := strings.ReplaceAll(string(out), tmpDir+"/a/", "a/")
+			out = strings.ReplaceAll(out, tmpDir+"/b/", "b/")
+			return out, nil
+		}
+		return string(out), err
+	}
 	return string(newcontent), nil
 }
