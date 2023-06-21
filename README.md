@@ -34,12 +34,21 @@ Usage of goreorder:
 
 By default, the tool will scan everything in the current directory and output result to standard output (no write).
 
+
+Examples of usage:
+
+```bash
+# show what will be generated
+goreorder -dir foobar
+```
+
+
 # Install
 
 Get release or use `go install github.com/metal3d/goreorder@latest` and download corresponding binary inside your `$PATH`. You can use this script to install `goreorder` as user or with `sudo`, the script will detect if you are simple user and will try to install in `$HOME/.local/bin` then `$HOME/bin` it the first one doesn't exists.
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/metal3d/goreorder/main/repo-tools/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/metal3d/goreorder/main/repo-tools/install.sh | bash -s
 ```
 
 If you want to install from source:

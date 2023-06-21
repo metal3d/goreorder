@@ -121,7 +121,7 @@ func TestReorder(t *testing.T) {
 	defer teardown(filename, tmpdir)
 
 	// reorder the file
-	content, err := ReorderSource(filename, "gofmt", true, nil)
+	content, err := ReorderSource(filename, "gofmt", true, nil, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -139,7 +139,7 @@ func TestNoStruct(t *testing.T) {
         fmt.Println("nothing")
     }
     `
-	content, err := ReorderSource(source, "gofmt", true, []byte(source))
+	content, err := ReorderSource(source, "gofmt", true, []byte(source), false)
 	if err == nil {
 		t.Error("Expected error for no found struct")
 	}
@@ -149,7 +149,7 @@ func TestNoStruct(t *testing.T) {
 }
 
 func TestBadFile(t *testing.T) {
-	_, err := ReorderSource("/tmp/foo.go", "gofmt", true, nil)
+	_, err := ReorderSource("/tmp/foo.go", "gofmt", true, nil, false)
 	if err == nil {
 		t.Error("Expected error")
 	}
@@ -164,7 +164,7 @@ func TestSpecialTypes(t *testing.T) {
         fmt.Println("nothing")
     }
     `
-	content, err := ReorderSource(source, "gofmt", true, []byte(source))
+	content, err := ReorderSource(source, "gofmt", true, []byte(source), false)
 	if err == nil {
 		t.Error("Expected error")
 	}
@@ -191,7 +191,7 @@ func main() {
 func (f *Bar) FooMethod1() {
 	fmt.Println("FooMethod1")
 }`
-	content, err := ReorderSource("foo.go", "gofmt", true, []byte(source))
+	content, err := ReorderSource("foo.go", "gofmt", true, []byte(source), false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -199,4 +199,14 @@ func (f *Bar) FooMethod1() {
 		t.Errorf("Expected:\n%s\nGot:\n%s\n", source, content)
 	}
 
+}
+
+func TestDiff(t *testing.T) {
+	filename, tmpdir := setup()
+	defer teardown(filename, tmpdir)
+
+	// for now, only test that no error is returned
+	if _, err := ReorderSource(filename, "gofmt", true, nil, true); err != nil {
+		t.Error(err)
+	}
 }
