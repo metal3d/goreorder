@@ -1,6 +1,7 @@
 package ordering
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,6 +27,7 @@ func (f *Foo) FooMethod1() {
 	print("FooMethod1")
 }
 
+// Bar doc
 type Bar struct {
 	// comment 5
 	idbar int
@@ -33,10 +35,12 @@ type Bar struct {
 	namebar string
 }
 
+// NewFoo doc
 func NewFoo() *Foo {
 	return nil
 }
 
+// NewBar doc
 func NewBar() *Bar {
 	return nil
 }
@@ -44,6 +48,7 @@ func NewBar() *Bar {
 
 const expectedSource = `package main
 
+// Bar doc
 type Bar struct {
 	// comment 5
 	idbar int
@@ -51,6 +56,7 @@ type Bar struct {
 	namebar string
 }
 
+// NewBar doc
 func NewBar() *Bar {
 	return nil
 }
@@ -68,6 +74,7 @@ type Foo struct {
 	namefoo string
 }
 
+// NewFoo doc
 func NewFoo() *Foo {
 	return nil
 }
@@ -78,7 +85,7 @@ func (f *Foo) FooMethod1() {
 }
 `
 
-func setup() string {
+func setup() (string, string) {
 	// write exampleSourceCode in a temporary file and return the filename
 	dirname, err := os.MkdirTemp("", "goreorder-")
 	if err != nil {
@@ -95,18 +102,23 @@ func setup() string {
 		panic(err)
 	}
 
-	return filename
+	return filename, dirname
 
 }
 
-func teardown(filename string) {
+func teardown(files ...string) {
 	// remove the temporary file
-	os.Remove(filename)
+	for _, file := range files {
+		err := os.Remove(file)
+		if err != nil {
+			log.Println("ERR: Cannot remove file:", err)
+		}
+	}
 }
 
 func TestReorder(t *testing.T) {
-	filename := setup()
-	defer teardown(filename)
+	filename, tmpdir := setup()
+	defer teardown(filename, tmpdir)
 
 	// reorder the file
 	content, err := ReorderSource(filename, "gofmt", true, nil)
