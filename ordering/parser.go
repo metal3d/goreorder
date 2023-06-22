@@ -21,29 +21,27 @@ type GoType struct {
 }
 
 // GetMethodComments returns the comments for the given method.
-func GetMethodComments(d *ast.FuncDecl) []string {
+func GetMethodComments(d *ast.FuncDecl) (comments []string) {
 	if d == nil || d.Doc == nil || d.Doc.List == nil {
-		return []string{}
+		return
 	}
 
-	comments := []string{}
 	for _, comment := range d.Doc.List {
 		comments = append(comments, comment.Text)
 	}
-	return comments
+	return
 }
 
 // GetTypeComments returns the comments for the given type.
-func GetTypeComments(d *ast.GenDecl) []string {
+func GetTypeComments(d *ast.GenDecl) (comments []string) {
 	if d == nil || d.Doc == nil || d.Doc.List == nil {
-		return []string{}
+		return
 	}
 
-	comments := []string{}
 	for _, comment := range d.Doc.List {
 		comments = append(comments, comment.Text)
 	}
-	return comments
+	return
 }
 
 // Parse the given file and return the methods, constructors and structs.

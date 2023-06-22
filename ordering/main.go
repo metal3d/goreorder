@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -61,7 +60,7 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool, src inte
 		sort.Strings(structNames)
 	}
 
-	// Get the source code signature
+	// Get the source code signature - we will use this to mark the lines to remove later
 	sign := fmt.Sprintf("%x", sha256.Sum256(content))
 
 	// We will work on lines.
@@ -76,7 +75,7 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool, src inte
 		if removedLines == 0 {
 			lineNumberWhereInject = structs[typename].OpeningLine
 		}
-		// replace the definitionsby "// -- line to remove
+		// replace the definitions by "// -- line to remove
 		for ln := structs[typename].OpeningLine - 1; ln < structs[typename].ClosingLine; ln++ {
 			originalContent[ln] = "// -- " + sign
 		}
@@ -144,44 +143,7 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool, src inte
 	}
 
 	if diff {
-		// create a and b directories in temporary directory
-		tmpDir, err := ioutil.TempDir("", "")
-		if err != nil {
-			return string(content), errors.New("Failed to create temp directory: " + err.Error())
-		}
-		defer os.RemoveAll(tmpDir) // clean up
-
-		// write original content in a
-		dirA := filepath.Join(tmpDir, "a")
-		dirB := filepath.Join(tmpDir, "b")
-
-		// get the filepath directory from filename and create it in a and b
-		dirA = filepath.Join(dirA, filepath.Dir(filename))
-		dirB = filepath.Join(dirB, filepath.Dir(filename))
-
-		// and now, it's the same as before
-		os.MkdirAll(dirA, 0755)
-		os.MkdirAll(dirB, 0755)
-
-		fba := filepath.Join(dirA, filepath.Base(filename))
-		if err := ioutil.WriteFile(fba, content, 0644); err != nil {
-			return string(content), errors.New("Failed to write to temporary file: " + err.Error())
-		}
-		fbb := filepath.Join(dirB, filepath.Base(filename))
-		if err := ioutil.WriteFile(fbb, newcontent, 0644); err != nil {
-			return string(content), errors.New("Failed to write to temporary file: " + err.Error())
-		}
-		// run diff -Naur a b
-		cmd := exec.Command("diff", "-Naur", dirA, dirB)
-		out, err := cmd.CombinedOutput()
-		if cmd.ProcessState.ExitCode() <= 1 { // 1 is valid, it means there are differences, 0 means no differences
-			// remplace tmp/a/ and tmp/b/ with a/ and b/ in the diff output
-			// to make it more readable and easier to apply with patch -p1
-			out := strings.ReplaceAll(string(out), tmpDir+"/a/", "a/")
-			out = strings.ReplaceAll(out, tmpDir+"/b/", "b/")
-			return out, nil
-		}
-		return string(out), err
+		return doDiff(content, newcontent, filename)
 	}
 	return string(newcontent), nil
 }
