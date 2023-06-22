@@ -121,7 +121,13 @@ func TestReorder(t *testing.T) {
 	defer teardown(filename, tmpdir)
 
 	// reorder the file
-	content, err := ReorderSource(filename, "gofmt", true, nil, false)
+	content, err := ReorderSource(ReorderConfig{
+		Filename:       filename,
+		FormatCommand:  "gofmt",
+		ReorderStructs: true,
+		Src:            nil,
+		Diff:           false,
+	})
 	if err != nil {
 		t.Error(err)
 	}
@@ -139,7 +145,13 @@ func TestNoStruct(t *testing.T) {
         fmt.Println("nothing")
     }
     `
-	content, err := ReorderSource(source, "gofmt", true, []byte(source), false)
+	content, err := ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: true,
+		Src:            []byte(source),
+		Diff:           false,
+	})
 	if err == nil {
 		t.Error("Expected error for no found struct")
 	}
@@ -149,7 +161,14 @@ func TestNoStruct(t *testing.T) {
 }
 
 func TestBadFile(t *testing.T) {
-	_, err := ReorderSource("/tmp/foo.go", "gofmt", true, nil, false)
+	//_, err := ReorderSource("/tmp/foo.go", "gofmt", true, nil, false)
+	_, err := ReorderSource(ReorderConfig{
+		Filename:       "/tmp/foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: true,
+		Src:            nil,
+		Diff:           false,
+	})
 	if err == nil {
 		t.Error("Expected error")
 	}
@@ -164,7 +183,13 @@ func TestSpecialTypes(t *testing.T) {
         fmt.Println("nothing")
     }
     `
-	content, err := ReorderSource(source, "gofmt", true, []byte(source), false)
+	content, err := ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: true,
+		Src:            []byte(source),
+		Diff:           false,
+	})
 	if err == nil {
 		t.Error("Expected error")
 	}
@@ -191,7 +216,13 @@ func main() {
 func (f *Bar) FooMethod1() {
 	fmt.Println("FooMethod1")
 }`
-	content, err := ReorderSource("foo.go", "gofmt", true, []byte(source), false)
+	content, err := ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: true,
+		Src:            []byte(source),
+		Diff:           false,
+	})
 	if err != nil {
 		t.Error(err)
 	}
@@ -264,7 +295,13 @@ func bar() {
 }
 `
 
-	content, err := ReorderSource("foo.go", "gofmt", true, []byte(source), false)
+	content, err := ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: true,
+		Src:            []byte(source),
+		Diff:           false,
+	})
 	if err != nil {
 		t.Error(err)
 	}
@@ -278,7 +315,52 @@ func TestDiff(t *testing.T) {
 	defer teardown(filename, tmpdir)
 
 	// for now, only test that no error is returned
-	if _, err := ReorderSource(filename, "gofmt", true, nil, true); err != nil {
+	if _, err := ReorderSource(ReorderConfig{
+		Filename:       filename,
+		FormatCommand:  "gofmt",
+		ReorderStructs: true,
+		Src:            nil,
+		Diff:           true,
+	}); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestGlobalVarPlace(t *testing.T) {
+	const globalVarSource = `package main
+
+var _ Foo = (*Bar)(nil)
+
+const (
+    baz1 = 1
+    baz2 = 2
+)
+
+var (
+    bar2 = 2
+    bar1 = 1
+)
+
+// comment 1
+// comment 2
+type Foo struct {
+    // comment 3
+    idfoo int
+}
+
+func (f *Foo) FooMethod1() {
+    print("FooMethod1")
+}
+`
+	_, err := ReorderSource(ReorderConfig{
+		Filename:       "test.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: false,
+		Src:            []byte(globalVarSource),
+		Diff:           false,
+	})
+
+	if err != nil {
 		t.Error(err)
 	}
 }
