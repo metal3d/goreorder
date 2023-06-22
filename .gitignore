@@ -1,4 +1,6 @@
-.cache/*
-examples/*
-./goreorder
+coverage.out
 dist/*
+examples/*
+goreorder
+.vim/*
+.cache/*
