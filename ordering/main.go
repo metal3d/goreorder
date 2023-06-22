@@ -20,14 +20,16 @@ type ReorderConfig struct {
 	Src            interface{}
 }
 
-// ReorderSource reorders the source code in the given filename. It will be helped by the formatCommand (gofmt or goimports). The method is to
-// use the Parse() function to extract types, methods and constructors. Then we replace the original source code with a comment containing the
-// sha256 of the source. This is made to not lose the original source code "lenght" while we reinject the ordered source code. Then, we finally
+// ReorderSource reorders the source code in the given filename.
+// It will be helped by the formatCommand (gofmt or goimports).
+// If gofmt is used, the source code will be formatted with the go/fmt package in memory.
+//
+// This function calls the Parse() function to extract types, methods, vars, consts and constructors.
+// Then it replaces the original source code with a comment containing the
+// sha256 of the source. This is made to not lose the original source code "lenght"
+// while we reinject the ordered source code. Then, we finally
 // remove thses lines from the source code.
 func ReorderSource(opt ReorderConfig) (string, error) {
-	// in all cases, we must return the original source code if an error occurs
-	// get the content of the file
-
 	var content []byte
 	var err error
 	if opt.Src == nil || len(opt.Src.([]byte)) == 0 {
