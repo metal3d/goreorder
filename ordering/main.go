@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"sort"
@@ -26,13 +27,11 @@ type ReorderConfig struct {
 func ReorderSource(opt ReorderConfig) (string, error) {
 	// in all cases, we must return the original source code if an error occurs
 	// get the content of the file
-	filename := opt.Filename
-	reorderStructs := opt.ReorderStructs
 
 	var content []byte
 	var err error
 	if opt.Src == nil || len(opt.Src.([]byte)) == 0 {
-		content, err = ioutil.ReadFile(filename)
+		content, err = ioutil.ReadFile(opt.Filename)
 		if err != nil {
 			return "", err
 		}
@@ -40,14 +39,14 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 		content = opt.Src.([]byte)
 	}
 
-	info, err := Parse(filename, content)
+	info, err := Parse(opt.Filename, content)
 
 	if err != nil {
 		return string(content), errors.New("Error parsing source: " + err.Error())
 	}
 
 	if len(info.Structs) == 0 {
-		return string(content), errors.New("No structs found in " + filename + ", cannot reorder")
+		return string(content), errors.New("No structs found in " + opt.Filename + ", cannot reorder")
 	}
 
 	// sort methods by name
@@ -65,9 +64,10 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 
 	structNames := make([]string, 0, len(info.Methods))
 	for _, s := range info.Structs {
+		log.Println("s.Name", s.Name)
 		structNames = append(structNames, s.Name)
 	}
-	if reorderStructs {
+	if opt.ReorderStructs {
 		sort.Strings(structNames)
 	}
 
@@ -155,7 +155,7 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 	}
 
 	if opt.Diff {
-		return doDiff(content, newcontent, filename)
+		return doDiff(content, newcontent, opt.Filename)
 	}
 	return string(newcontent), nil
 }
