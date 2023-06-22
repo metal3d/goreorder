@@ -364,3 +364,129 @@ func (f *Foo) FooMethod1() {
 		t.Error(err)
 	}
 }
+
+func TestNoOrderStructs(t *testing.T) {
+	const source = `package main
+type grault struct {}
+type xyzzy struct {}
+type bar struct {}
+type qux struct {}
+type quux struct {}
+type corge struct {}
+type garply struct {}
+type baz struct {}
+type waldo struct {}
+type fred struct {}
+type plugh struct {}
+type foo struct {}
+`
+	const expected = `package main
+
+type grault struct{}
+
+type xyzzy struct{}
+
+type bar struct{}
+
+type qux struct{}
+
+type quux struct{}
+
+type corge struct{}
+
+type garply struct{}
+
+type baz struct{}
+
+type waldo struct{}
+
+type fred struct{}
+
+type plugh struct{}
+
+type foo struct{}
+`
+
+	const orderedSource = `package main
+
+type bar struct{}
+
+type baz struct{}
+
+type corge struct{}
+
+type foo struct{}
+
+type fred struct{}
+
+type garply struct{}
+
+type grault struct{}
+
+type plugh struct{}
+
+type quux struct{}
+
+type qux struct{}
+
+type waldo struct{}
+
+type xyzzy struct{}
+`
+
+	content, err := ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: false,
+		Src:            []byte(source),
+		Diff:           false,
+	})
+	if err != nil {
+		t.Error(err)
+	}
+	if content != expected {
+		t.Errorf("Expected UNORDERED:\n%s\nGot:\n%s\n", expected, content)
+	}
+
+	content, err = ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: true,
+		Src:            []byte(source),
+		Diff:           false,
+	})
+	if err != nil {
+		t.Error(err)
+	}
+	if content != orderedSource {
+		t.Errorf("Expected ORDERED:\n%s\nGot:\n%s\n", orderedSource, content)
+	}
+
+}
+
+func TestBadFormatCommand(t *testing.T) {
+	const source = `package main
+
+import (
+    "os"
+    "fmt"
+)
+type grault struct {}
+type xyzzy struct {}
+type bar struct {}
+`
+	content, err := ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "wthcommand",
+		ReorderStructs: false,
+		Src:            []byte(source),
+		Diff:           false,
+	})
+
+	if err == nil {
+		t.Error("Expected error, got nil")
+	}
+	if content != source {
+		t.Errorf("Expected:\n%s\nGot:\n%s\n", source, content)
+	}
+}

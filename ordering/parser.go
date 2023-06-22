@@ -27,6 +27,7 @@ type ParsedInfo struct {
 	Structs      map[string]*GoType
 	Constants    map[string]*GoType
 	Variables    map[string]*GoType
+	StructNames  *StingList
 }
 
 // GetMethodComments returns the comments for the given method.
@@ -66,6 +67,7 @@ func Parse(filename string, src interface{}) (*ParsedInfo, error) {
 		methods      = make(map[string][]*GoType)
 		constructors = make(map[string][]*GoType)
 		structTypes  = make(map[string]*GoType)
+		structNames  = &StingList{}
 		varTypes     = make(map[string]*GoType)
 		constTypes   = make(map[string]*GoType)
 		sourceCode   []byte
@@ -87,7 +89,7 @@ func Parse(filename string, src interface{}) (*ParsedInfo, error) {
 			findMethods(d, fset, sourceLines, methods)
 		// find struct declarations
 		case *ast.GenDecl:
-			findStructs(d, fset, sourceLines, structTypes)
+			findStructs(d, fset, sourceLines, structNames, structTypes)
 			findGlobalVarsAndConsts(d, fset, sourceLines, varTypes, constTypes)
 		}
 	}
@@ -102,6 +104,7 @@ func Parse(filename string, src interface{}) (*ParsedInfo, error) {
 
 	return &ParsedInfo{
 		Structs:      structTypes,
+		StructNames:  structNames,
 		Methods:      methods,
 		Constructors: constructors,
 		Variables:    varTypes,
@@ -109,7 +112,7 @@ func Parse(filename string, src interface{}) (*ParsedInfo, error) {
 	}, nil
 }
 
-func findStructs(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, structTypes map[string]*GoType) {
+func findStructs(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, stuctNames *StingList, structTypes map[string]*GoType) {
 	if d.Tok != token.TYPE {
 		return
 	}
@@ -132,6 +135,7 @@ func findStructs(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, stru
 			typeDef.OpeningLine -= len(comments)
 
 			structTypes[s.Name.Name] = typeDef
+			stuctNames.Add(s.Name.Name)
 		}
 	}
 }

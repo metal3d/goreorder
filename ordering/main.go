@@ -4,8 +4,8 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"go/format"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"sort"
@@ -62,13 +62,8 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 		})
 	}
 
-	structNames := make([]string, 0, len(info.Methods))
-	for _, s := range info.Structs {
-		log.Println("s.Name", s.Name)
-		structNames = append(structNames, s.Name)
-	}
 	if opt.ReorderStructs {
-		sort.Strings(structNames)
+		info.StructNames.Sort()
 	}
 
 	// Get the source code signature - we will use this to mark the lines to remove later
@@ -82,7 +77,7 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 
 	lineNumberWhereInject := 0
 	removedLines := 0
-	for _, typename := range structNames {
+	for _, typename := range *info.StructNames {
 		if removedLines == 0 {
 			lineNumberWhereInject = info.Structs[typename].OpeningLine
 		}
@@ -129,33 +124,50 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 	output := strings.Join(originalContent, "\n")
 
 	// write in a temporary file and use "gofmt" to format it
-	tmpfile, err := ioutil.TempFile("", "")
-	if err != nil {
-		return string(content), errors.New("Failed to create temp file: " + err.Error())
-	}
-	defer func() {
-		// close and remove the temporary file
-		tmpfile.Close()
-		os.Remove(tmpfile.Name())
-	}()
-
-	if _, err := tmpfile.Write([]byte(output)); err != nil {
-		return string(content), errors.New("Failed to write to temporary file: " + err.Error())
-	}
-
-	cmd := exec.Command(opt.FormatCommand, "-w", tmpfile.Name())
-	if err := cmd.Run(); err != nil {
-		return string(content), err
-	}
-
-	// read the temporary file
-	newcontent, err := ioutil.ReadFile(tmpfile.Name())
-	if err != nil {
-		return string(content), errors.New("Read Temporary File error: " + err.Error())
+	newcontent := []byte(output)
+	switch opt.FormatCommand {
+	case "gofmt":
+		// format the temporary file
+		newcontent, err = format.Source([]byte(output))
+		if err != nil {
+			return string(content), errors.New("Failed to format source: " + err.Error())
+		}
+	default:
+		if newcontent, err = formatWithCommand(content, output, opt); err != nil {
+			return string(content), errors.New("Failed to format source: " + err.Error())
+		}
 	}
 
 	if opt.Diff {
 		return doDiff(content, newcontent, opt.Filename)
 	}
 	return string(newcontent), nil
+}
+
+func formatWithCommand(content []byte, output string, opt ReorderConfig) (newcontent []byte, err error) {
+	// we use the format command given by the user
+	// on a temporary file we need to create and remove
+	tmpfile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return content, errors.New("Failed to create temp file: " + err.Error())
+	}
+	defer os.Remove(tmpfile.Name())
+
+	// write the temporary file
+	if _, err := tmpfile.Write([]byte(output)); err != nil {
+		return content, errors.New("Failed to write temp file: " + err.Error())
+	}
+	tmpfile.Close()
+
+	// format the temporary file
+	cmd := exec.Command(opt.FormatCommand, "-w", tmpfile.Name())
+	if err := cmd.Run(); err != nil {
+		return content, err
+	}
+	// read the temporary file
+	newcontent, err = ioutil.ReadFile(tmpfile.Name())
+	if err != nil {
+		return content, errors.New("Read Temporary File error: " + err.Error())
+	}
+	return newcontent, nil
 }
