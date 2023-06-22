@@ -89,16 +89,19 @@ The released binaries are signed with GPG. If you want to verify that the releas
 
 ## Optional, you can get and trust the owner GPG key
 # this is the repo owner key:
-_OWNERKEY="F3702E3FAD8F76DC"
+_KEY="F3702E3FAD8F76DC"
+# You can get it with this command:
+_KEY=$(curl -s https://api.github.com/users/metal3d/gpg_keys | \
+    awk -F'"' '/"key_id"/{print $4; exit}')
+echo ${_KEY}
 
-# you can import the repository owner key
-gpg --keyserver hkps://keys.openpgp.org/ --recv-keys ${_OWNERKEY}
+# you can import the repository owner key from keyserver
+gpg --keyserver hkps://keys.openpgp.org/ --recv-keys ${_KEY}
 
 # optoinal, trust owner key
-_FPR=$(gpg -k --with-colons --fingerprint "${_OWNERKEY}" | awk -F: '/fpr/{print $10; exit}')
+_FPR=$(gpg -k --with-colons --fingerprint "${_KEY}" | awk -F: '/fpr/{print $10; exit}')
 echo ${_FPR}:6: | gpg --import-ownertrust
-
-unset _OWNERKEY _FPR
+unset _KEY _FPR
 
 ## Verification
 # get the signature of the right binary
