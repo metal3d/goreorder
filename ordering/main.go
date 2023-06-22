@@ -134,8 +134,9 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 		return string(content), errors.New("Failed to create temp file: " + err.Error())
 	}
 	defer func() {
-		os.Remove(tmpfile.Name()) // clean up
+		// close and remove the temporary file
 		tmpfile.Close()
+		os.Remove(tmpfile.Name())
 	}()
 
 	if _, err := tmpfile.Write([]byte(output)); err != nil {
