@@ -12,7 +12,7 @@ This tool will "reorder" your sources:
 
 There are several possibilities:
 
-- If you have "go" on your machine, simply install using `go install github.com/metal3d/goreorder@latest` (you can replace "latest" by a known version)
+- If you have "go" on your machine, simply install using `go install github.com/metal3d/goreorder/cmd/goreorder@latest` (you can replace "latest" by a known version)
 - Visit the [release page](https://github.com/metal3d/goreorder/releases) to download the latest version (to place un you `$PATH`)
 - Use the installer:
     ```bash
