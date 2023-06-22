@@ -201,6 +201,78 @@ func (f *Bar) FooMethod1() {
 
 }
 
+// Test if orphan comments are not lost and not placed in the weird place.
+func TestDealWithOrphanComments(t *testing.T) {
+	const source = `package main
+// orphan comment 1 here
+
+func main() {
+	fmt.Println("nothing")
+}
+
+// orphan comment 2 here
+
+type Foo struct {}
+
+func (f *Foo) FooMethod1() {}
+
+// foo comment
+func foo() {
+}
+
+func (f *Foo) FooMethod2() {}
+
+// orphan comment 3 here
+
+func (f *Foo) FooMethod3() {}
+
+// bar comment
+func bar() {
+}
+
+func (f *Foo) FooMethod4() {}
+`
+
+	const expected = `package main
+
+// orphan comment 1 here
+
+func main() {
+	fmt.Println("nothing")
+}
+
+// orphan comment 2 here
+
+type Foo struct{}
+
+func (f *Foo) FooMethod1() {}
+
+func (f *Foo) FooMethod2() {}
+
+func (f *Foo) FooMethod3() {}
+
+func (f *Foo) FooMethod4() {}
+
+// foo comment
+func foo() {
+}
+
+// orphan comment 3 here
+
+// bar comment
+func bar() {
+}
+`
+
+	content, err := ReorderSource("foo.go", "gofmt", true, []byte(source), false)
+	if err != nil {
+		t.Error(err)
+	}
+	if content != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s\n", expected, content)
+	}
+}
+
 func TestDiff(t *testing.T) {
 	filename, tmpdir := setup()
 	defer teardown(filename, tmpdir)
