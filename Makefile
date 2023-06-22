@@ -82,3 +82,7 @@ clean: clean-dist
 
 test: 
 	go test -v -race -cover -short ./...
+
+test-cover-html:
+	go test -cover -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out
