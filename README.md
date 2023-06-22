@@ -12,8 +12,11 @@ This tool will "reorder" your sources:
 
 There are several possibilities:
 
-- If you have "go" on your machine, simply install using `go install github.com/metal3d/goreorder/cmd/goreorder@latest` (you can replace "latest" by a known version)
-- Visit the [release page](https://github.com/metal3d/goreorder/releases) to download the latest version (to place un you `$PATH`)
+- If you have "go" on your machine, simply install using (you can replace "latest" by a known tag):
+    ```bash
+    go install github.com/metal3d/goreorder/cmd/goreorder@latest`
+    ```
+- Visit the [release page](https://github.com/metal3d/goreorder/releases) to download the desired version (to place un you `$PATH`)
 - Use the installer:
     ```bash
     curl -sSL https://raw.githubusercontent.com/metal3d/goreorder/main/repo-tools/install.sh | bash -s
@@ -32,7 +35,7 @@ cd goreorder
 make install
 ```
 
-## Basic Usage
+# Basic Usage
 
 ```
 goreorder reorders the structs (optional), methods and constructors in a Go
@@ -78,8 +81,44 @@ patch -p1  < ./reorder.patch
 patch -p1 -R < ./reorder.patch
 ```
 
+# Releases are GPG signed
+
+The released binaries are signed with GPG. If you want to verify that the release comes from this repository and was built by the author:
+
+```bash
+
+## Optional, you can get and trust the owner GPG key
+# this is the repo owner key:
+_OWNERKEY="F3702E3FAD8F76DC"
+
+# you can import the repository owner key
+gpg --keyserver hkps://keys.openpgp.org/ --recv-keys ${_OWNERKEY}
+
+# optoinal, trust owner key
+_FPR=$(gpg -k --with-colons --fingerprint "${_OWNERKEY}" | awk -F: '/fpr/{print $10; exit}')
+echo ${_FPR}:6: | gpg --import-ownertrust
+
+unset _OWNERKEY _FPR
+
+## Verification
+# get the signature of the right binary
+_REL="goreorder-linux-amd64"
+_SIGNURL=https://github.com/metal3d/goreorder/releases/download/${_REL}.asc
+curl ${_SIGNURL} -o /tmp/goreorder.asc 
+unset _SIGNURL _REL
+
+# get or set the path to the binary file you downloaded / installed
+# _GOREORDERBIN=/path/to/the/binary
+_GOREORDERBIN=$(command -v goreorder)
+
+# check the signature
+gpg --verify /tmp/goreorder.asc $_GOREORDERBIN
+rm /tmp/goreorder.asc
+```
+
 # Contribute
 
 Please fill an issue to create a bug report.
 
 If you want to participate, please fork the repository and propose a pull request **on the "develop" branch**.
+
