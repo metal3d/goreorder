@@ -1,8 +1,8 @@
 # EXPERIMENTAL go source reoreding
 
-This tool is EXPERIMENTAL! We strongly recommend to backup (or use git to commit your changes) before to try it.
+> This tool is **EXPERIMENTAL!** We **strongly** recommend to back up (or use git to commit your changes) before to try it.
 
-This tool will "reorder" your sources to do this:
+This tool will "reorder" your sources:
 
 - alphabetic reorder you methods and constructors (constructors will be also placed above methods)
 - place methods and constructors below the `type` definition
@@ -10,14 +10,19 @@ This tool will "reorder" your sources to do this:
 
 # Install
 
-Get release or use `go install github.com/metal3d/goreorder@latest` and download corresponding binary inside your `$PATH`.
+There are several possibilities:
 
-You can use this script to install `goreorder` as user or with `sudo`, the script will detect if you are simple user
-and will try to install in `$HOME/.local/bin` then `$HOME/bin` it the first one doesn't exists.
+- If you have "go" on your machine, simply install using `go install github.com/metal3d/goreorder@latest` (you can replace "latest" by a known version)
+- Visit the [release page](https://github.com/metal3d/goreorder/releases) to download the latest version (to place un you `$PATH`)
+- Use the installer:
+    ```bash
+    curl -sSL https://raw.githubusercontent.com/metal3d/goreorder/main/repo-tools/install.sh | bash -s
+    ```
 
-```bash
-curl -sSL https://raw.githubusercontent.com/metal3d/goreorder/main/repo-tools/install.sh | bash -s
-```
+The installer script detects if you are launching it as root or standard user and installs the tool in:
+
+- `$HOME/.local/bin` or `$HOME/bin` for standard user if it exists (it fails if one of these paths doesn't exists)
+- `/usr/local/bin` if you're root user (or using sudo)
 
 You can also get this repository and build it with the `Makefile`:
 
