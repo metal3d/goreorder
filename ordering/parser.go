@@ -234,10 +234,10 @@ func findGlobalVarsAndConsts(d *ast.GenDecl, fset *token.FileSet, sourceLines []
 					"\n" +
 					strings.Join(sourceLines[typeDef.OpeningLine-1:typeDef.ClosingLine], "\n")
 				typeDef.OpeningLine -= len(comments)
-				switch {
-				case d.Tok == token.CONST:
+				switch d.Tok {
+				case token.CONST:
 					constTypes[name.Name] = typeDef
-				case d.Tok == token.VAR:
+				case token.VAR:
 					varTypes[name.Name] = typeDef
 				}
 			}
