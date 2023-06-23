@@ -32,30 +32,6 @@ type ParsedInfo struct {
 	StructNames  *StingList
 }
 
-// GetMethodComments returns the comments for the given method.
-func GetMethodComments(d *ast.FuncDecl) (comments []string) {
-	if d == nil || d.Doc == nil || d.Doc.List == nil {
-		return
-	}
-
-	for _, comment := range d.Doc.List {
-		comments = append(comments, comment.Text)
-	}
-	return
-}
-
-// GetTypeComments returns the comments for the given type.
-func GetTypeComments(d *ast.GenDecl) (comments []string) {
-	if d == nil || d.Doc == nil || d.Doc.List == nil {
-		return
-	}
-
-	for _, comment := range d.Doc.List {
-		comments = append(comments, comment.Text)
-	}
-	return
-}
-
 // Parse the given file and return the methods, constructors and structs.
 func Parse(filename string, src interface{}) (*ParsedInfo, error) {
 	fset := token.NewFileSet()
@@ -124,6 +100,30 @@ func Parse(filename string, src interface{}) (*ParsedInfo, error) {
 		Variables:    varTypes,
 		Constants:    constTypes,
 	}, nil
+}
+
+// GetMethodComments returns the comments for the given method.
+func GetMethodComments(d *ast.FuncDecl) (comments []string) {
+	if d == nil || d.Doc == nil || d.Doc.List == nil {
+		return
+	}
+
+	for _, comment := range d.Doc.List {
+		comments = append(comments, comment.Text)
+	}
+	return
+}
+
+// GetTypeComments returns the comments for the given type.
+func GetTypeComments(d *ast.GenDecl) (comments []string) {
+	if d == nil || d.Doc == nil || d.Doc.List == nil {
+		return
+	}
+
+	for _, comment := range d.Doc.List {
+		comments = append(comments, comment.Text)
+	}
+	return
 }
 
 func findStructs(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, stuctNames *StingList, structTypes map[string]*GoType) {
