@@ -79,6 +79,26 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 
 	lineNumberWhereInject := 0
 	removedLines := 0
+	for i, sourceCode := range info.Constants {
+		if removedLines == 0 {
+			lineNumberWhereInject = info.Constants[i].OpeningLine
+		}
+		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
+			originalContent[ln] = "// -- " + sign
+		}
+		source = append(source, "\n"+sourceCode.SourceCode)
+		removedLines += len(info.Constants)
+	}
+	for i, sourceCode := range info.Variables {
+		if removedLines == 0 {
+			lineNumberWhereInject = info.Variables[i].OpeningLine
+		}
+		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
+			originalContent[ln] = "// -- " + sign
+		}
+		source = append(source, "\n"+sourceCode.SourceCode)
+		removedLines += len(info.Variables)
+	}
 	for _, typename := range *info.StructNames {
 		if removedLines == 0 {
 			lineNumberWhereInject = info.Structs[typename].OpeningLine
@@ -110,6 +130,16 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 			source = append(source, "\n"+method.SourceCode)
 		}
 		removedLines += len(info.Methods[typename])
+	}
+	for i, sourceCode := range info.Functions {
+		if removedLines == 0 {
+			lineNumberWhereInject = info.Functions[i].OpeningLine
+		}
+		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
+			originalContent[ln] = "// -- " + sign
+		}
+		source = append(source, "\n"+sourceCode.SourceCode)
+		removedLines += len(info.Functions)
 	}
 
 	// add the "source" at the found lineNumberWhereInject

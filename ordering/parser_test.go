@@ -50,10 +50,10 @@ func TestParse(t *testing.T) {
 	if parsed == nil {
 		t.Error("Expected parsed info")
 	}
-	if len(parsed.Constants) != 4 {
+	if len(parsed.Constants) != 3 { // There is 3  blocs, not 4 consts
 		t.Errorf("Expected 4 consts, got %d", len(parsed.Constants))
 	}
-	if len(parsed.Variables) != 4 {
+	if len(parsed.Variables) != 3 { // There is 3  blocs, not 4 vars
 		t.Errorf("Expected 4 vars, got %d", len(parsed.Variables))
 	}
 	if len(parsed.Structs) != 3 {

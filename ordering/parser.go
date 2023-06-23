@@ -1,6 +1,7 @@
 package ordering
 
 import (
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -22,6 +23,7 @@ type GoType struct {
 
 // ParsedInfo contains information we need to sort in the source file.
 type ParsedInfo struct {
+	Functions    map[string]*GoType
 	Methods      map[string][]*GoType
 	Constructors map[string][]*GoType
 	Structs      map[string]*GoType
@@ -65,6 +67,7 @@ func Parse(filename string, src interface{}) (*ParsedInfo, error) {
 
 	var (
 		methods      = make(map[string][]*GoType)
+		functions    = make(map[string]*GoType)
 		constructors = make(map[string][]*GoType)
 		structTypes  = make(map[string]*GoType)
 		structNames  = &StingList{}
@@ -75,7 +78,10 @@ func Parse(filename string, src interface{}) (*ParsedInfo, error) {
 
 	if src == nil {
 		// error should never happen as Parse() worked
-		sourceCode, _ = ioutil.ReadFile(filename)
+		sourceCode, err = ioutil.ReadFile(filename)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		sourceCode = src.([]byte)
 	}
@@ -101,8 +107,16 @@ func Parse(filename string, src interface{}) (*ParsedInfo, error) {
 			findConstructors(d, fset, sourceLines, methods, constructors)
 		}
 	}
+	// and now functions
+	for _, decl := range f.Decls {
+		switch d := decl.(type) {
+		case *ast.FuncDecl:
+			findFunctions(d, fset, sourceLines, functions, constructors)
+		}
+	}
 
 	return &ParsedInfo{
+		Functions:    functions,
 		Structs:      structTypes,
 		StructNames:  structNames,
 		Methods:      methods,
@@ -197,10 +211,11 @@ func findConstructors(d *ast.FuncDecl, fset *token.FileSet, sourceLines []string
 				continue
 			}
 			returnType := exp.X.(*ast.Ident).Name
-			if _, ok := methods[returnType]; !ok {
-				// not a contructor for detected types above, skip
-				continue
-			}
+			// Bug: constructors are not detected if the type is not a method receiver
+			//if _, ok := methods[returnType]; !ok {
+			//	// not a contructor for detected types above, skip
+			//	continue
+			//}
 			// Create a new method
 			method := &GoType{
 				Name:        d.Name.Name,
@@ -228,6 +243,7 @@ func findGlobalVarsAndConsts(d *ast.GenDecl, fset *token.FileSet, sourceLines []
 	for _, spec := range d.Specs {
 		if s, ok := spec.(*ast.ValueSpec); ok {
 			for _, name := range s.Names {
+				// log the source code for the variable or constant
 				typeDef := &GoType{
 					Name:        name.Name,
 					OpeningLine: fset.Position(d.Pos()).Line,
@@ -238,13 +254,61 @@ func findGlobalVarsAndConsts(d *ast.GenDecl, fset *token.FileSet, sourceLines []
 					"\n" +
 					strings.Join(sourceLines[typeDef.OpeningLine-1:typeDef.ClosingLine], "\n")
 				typeDef.OpeningLine -= len(comments)
+
+				// this time, if const or vars are defined in a parenthesis, the source code is the same for all
+				// found var or const. So, what we do is to check if the source code is already in the map, and if
+				// so, we skip it.
+				// we will use the source code signature as the key for the map
+				signature := fmt.Sprintf("%d-%d", typeDef.OpeningLine, typeDef.ClosingLine)
+				if _, ok := varTypes[signature]; ok {
+					continue
+				}
+
 				switch d.Tok {
 				case token.CONST:
-					constTypes[name.Name] = typeDef
+					constTypes[signature] = typeDef
 				case token.VAR:
-					varTypes[name.Name] = typeDef
+					varTypes[signature] = typeDef
 				}
 			}
 		}
 	}
+}
+
+func findFunctions(d *ast.FuncDecl, fset *token.FileSet, sourceLines []string, functions map[string]*GoType, constructors map[string][]*GoType) {
+	if d.Recv != nil {
+		return // because it's a method
+	}
+	if d.Name == nil {
+		return
+	}
+	if d.Name.Name == "" {
+		return
+	}
+
+	if inConstructors(constructors, d.Name.Name) {
+		return
+	}
+
+	functions[d.Name.Name] = &GoType{
+		Name:        d.Name.Name,
+		OpeningLine: fset.Position(d.Pos()).Line,
+		ClosingLine: fset.Position(d.End()).Line,
+	}
+	comments := GetMethodComments(d)
+	functions[d.Name.Name].SourceCode = strings.Join(comments, "\n") +
+		"\n" +
+		strings.Join(sourceLines[functions[d.Name.Name].OpeningLine-1:functions[d.Name.Name].ClosingLine], "\n")
+	functions[d.Name.Name].OpeningLine -= len(comments)
+}
+
+func inConstructors(constructorMap map[string][]*GoType, funcname string) bool {
+	for _, constructors := range constructorMap {
+		for _, constructor := range constructors {
+			if constructor.Name == funcname {
+				return true
+			}
+		}
+	}
+	return false
 }

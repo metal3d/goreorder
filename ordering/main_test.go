@@ -268,10 +268,6 @@ func (f *Foo) FooMethod4() {}
 
 // orphan comment 1 here
 
-func main() {
-	fmt.Println("nothing")
-}
-
 // orphan comment 2 here
 
 type Foo struct{}
@@ -284,15 +280,19 @@ func (f *Foo) FooMethod3() {}
 
 func (f *Foo) FooMethod4() {}
 
+func main() {
+	fmt.Println("nothing")
+}
+
 // foo comment
 func foo() {
 }
 
-// orphan comment 3 here
-
 // bar comment
 func bar() {
 }
+
+// orphan comment 3 here
 `
 
 	content, err := ReorderSource(ReorderConfig{
