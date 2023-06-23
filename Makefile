@@ -16,6 +16,10 @@ SIGNER=metal3d@gmail.com
 
 TARGETS=dist/goreorder-linux-amd64 dist/goreorder-darwin-amd64 dist/goreorder-windows-amd64.exe dist/goreorder-freebsd-amd64
 
+# TEST selection
+# e.g. TEST="TestFoo TestBar"
+TEST=
+
 install:
 	go install -v $(CC_OPTS) $(PACKAGE)
 
@@ -80,8 +84,12 @@ clean-dist:
 clean: clean-dist
 	rm -f ./goreorder
 
-test: 
+test:
+ifeq ($(strip $(TEST)),)
 	go test -v -race -cover -short ./...
+else
+	go test -v -race  -run $(TEST) ./...
+endif
 
 test-cover-html:
 	go test -cover -coverprofile=coverage.out ./...

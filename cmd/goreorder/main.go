@@ -178,7 +178,13 @@ func processFile(fileOrDirectoryName string, formatToolName string, reorderStruc
 
 	if input != nil && len(input) != 0 {
 		// process stdin
-		content, err := ordering.ReorderSource(fileOrDirectoryName, formatToolName, reorderStructs, input, diff)
+		content, err := ordering.ReorderSource(ordering.ReorderConfig{
+			Filename:       fileOrDirectoryName,
+			FormatCommand:  formatToolName,
+			ReorderStructs: reorderStructs,
+			Src:            input,
+			Diff:           diff,
+		})
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -213,7 +219,13 @@ func processFile(fileOrDirectoryName string, formatToolName string, reorderStruc
 	}
 
 	log.Println("Processing file: " + fileOrDirectoryName)
-	output, err := ordering.ReorderSource(fileOrDirectoryName, formatToolName, reorderStructs, input, diff)
+	output, err := ordering.ReorderSource(ordering.ReorderConfig{
+		Filename:       fileOrDirectoryName,
+		FormatCommand:  formatToolName,
+		ReorderStructs: reorderStructs,
+		Src:            input,
+		Diff:           diff,
+	})
 	if err != nil {
 		log.Println("ERR: Ordering error:", err)
 		return

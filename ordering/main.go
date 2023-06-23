@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"go/format"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -11,53 +12,66 @@ import (
 	"strings"
 )
 
-// ReorderSource reorders the source code in the given filename. It will be helped by the formatCommand (gofmt or goimports). The method is to
-// use the Parse() function to extract types, methods and constructors. Then we replace the original source code with a comment containing the
-// sha256 of the source. This is made to not lose the original source code "lenght" while we reinject the ordered source code. Then, we finally
+type ReorderConfig struct {
+	Filename       string
+	FormatCommand  string
+	ReorderStructs bool
+	Diff           bool
+	Src            interface{}
+}
+
+// ReorderSource reorders the source code in the given filename.
+// It will be helped by the formatCommand (gofmt or goimports).
+// If gofmt is used, the source code will be formatted with the go/fmt package in memory.
+//
+// This function calls the Parse() function to extract types, methods, vars, consts and constructors.
+// Then it replaces the original source code with a comment containing the
+// sha256 of the source. This is made to not lose the original source code "lenght"
+// while we reinject the ordered source code. Then, we finally
 // remove thses lines from the source code.
-func ReorderSource(filename, formatCommand string, reorderStructs bool, src interface{}, diff bool) (string, error) {
-	// in all cases, we must return the original source code if an error occurs
-	// get the content of the file
+func ReorderSource(opt ReorderConfig) (string, error) {
 	var content []byte
 	var err error
-	if src == nil || len(src.([]byte)) == 0 {
-		content, err = ioutil.ReadFile(filename)
+	if opt.Src == nil || len(opt.Src.([]byte)) == 0 {
+		content, err = ioutil.ReadFile(opt.Filename)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		content = src.([]byte)
+		content = opt.Src.([]byte)
 	}
 
-	methods, constructors, structs, err := Parse(filename, formatCommand, content)
+	info, err := Parse(opt.Filename, content)
 
 	if err != nil {
 		return string(content), errors.New("Error parsing source: " + err.Error())
 	}
 
-	if len(structs) == 0 {
-		return string(content), errors.New("No structs found in " + filename + ", cannot reorder")
+	if len(info.Structs) == 0 {
+		return string(content), errors.New("No structs found in " + opt.Filename + ", cannot reorder")
 	}
 
 	// sort methods by name
-	for _, method := range methods {
+	for _, method := range info.Methods {
 		sort.Slice(method, func(i, j int) bool {
 			return method[i].Name < method[j].Name
 		})
 	}
 
-	for _, method := range constructors {
-		sort.Slice(method, func(i, j int) bool {
-			return method[i].Name < method[j].Name
+	for _, constructor := range info.Constructors {
+		sort.Slice(constructor, func(i, j int) bool {
+			return constructor[i].Name < constructor[j].Name
 		})
 	}
 
-	structNames := make([]string, 0, len(methods))
-	for _, s := range structs {
-		structNames = append(structNames, s.Name)
+	functionNames := make([]string, 0, len(info.Functions))
+	for functionName := range info.Functions {
+		functionNames = append(functionNames, functionName)
 	}
-	if reorderStructs {
-		sort.Strings(structNames)
+	sort.Strings(functionNames)
+
+	if opt.ReorderStructs {
+		info.StructNames.Sort()
 	}
 
 	// Get the source code signature - we will use this to mark the lines to remove later
@@ -71,37 +85,68 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool, src inte
 
 	lineNumberWhereInject := 0
 	removedLines := 0
-	for _, typename := range structNames {
+	for i, sourceCode := range info.Constants {
 		if removedLines == 0 {
-			lineNumberWhereInject = structs[typename].OpeningLine
+			lineNumberWhereInject = info.Constants[i].OpeningLine
 		}
-		// replace the definitions by "// -- line to remove
-		for ln := structs[typename].OpeningLine - 1; ln < structs[typename].ClosingLine; ln++ {
+		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
 			originalContent[ln] = "// -- " + sign
 		}
-		removedLines += structs[typename].ClosingLine - structs[typename].OpeningLine
+		source = append(source, "\n"+sourceCode.SourceCode)
+		removedLines += len(info.Constants)
+	}
+	for i, sourceCode := range info.Variables {
+		if removedLines == 0 {
+			lineNumberWhereInject = info.Variables[i].OpeningLine
+		}
+		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
+			originalContent[ln] = "// -- " + sign
+		}
+		source = append(source, "\n"+sourceCode.SourceCode)
+		removedLines += len(info.Variables)
+	}
+	for _, typename := range *info.StructNames {
+		if removedLines == 0 {
+			lineNumberWhereInject = info.Structs[typename].OpeningLine
+		}
+		// replace the definitions by "// -- line to remove
+		for ln := info.Structs[typename].OpeningLine - 1; ln < info.Structs[typename].ClosingLine; ln++ {
+			originalContent[ln] = "// -- " + sign
+		}
+		removedLines += info.Structs[typename].ClosingLine - info.Structs[typename].OpeningLine
 		// add the struct definition to "source"
-		source = append(source, "\n\n"+structs[typename].SourceCode)
+		source = append(source, "\n\n"+info.Structs[typename].SourceCode)
 
 		// same for constructors
-		for _, constructor := range constructors[typename] {
+		for _, constructor := range info.Constructors[typename] {
 			for ln := constructor.OpeningLine - 1; ln < constructor.ClosingLine; ln++ {
 				originalContent[ln] = "// -- " + sign
 			}
 			// add the constructor to "source"
 			source = append(source, "\n"+constructor.SourceCode)
 		}
-		removedLines += len(constructors[typename])
+		removedLines += len(info.Constructors[typename])
 
 		// same for methods
-		for _, method := range methods[typename] {
+		for _, method := range info.Methods[typename] {
 			for ln := method.OpeningLine - 1; ln < method.ClosingLine; ln++ {
 				originalContent[ln] = "// -- " + sign
 			}
 			// add the method to "source"
 			source = append(source, "\n"+method.SourceCode)
 		}
-		removedLines += len(methods[typename])
+		removedLines += len(info.Methods[typename])
+	}
+	for _, name := range functionNames {
+		sourceCode := info.Functions[name]
+		if removedLines == 0 {
+			lineNumberWhereInject = info.Functions[name].OpeningLine
+		}
+		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
+			originalContent[ln] = "// -- " + sign
+		}
+		source = append(source, "\n"+sourceCode.SourceCode)
+		removedLines += len(info.Functions)
 	}
 
 	// add the "source" at the found lineNumberWhereInject
@@ -118,32 +163,50 @@ func ReorderSource(filename, formatCommand string, reorderStructs bool, src inte
 	output := strings.Join(originalContent, "\n")
 
 	// write in a temporary file and use "gofmt" to format it
-	tmpfile, err := ioutil.TempFile("", "")
-	if err != nil {
-		return string(content), errors.New("Failed to create temp file: " + err.Error())
-	}
-	defer func() {
-		os.Remove(tmpfile.Name()) // clean up
-		tmpfile.Close()
-	}()
-
-	if _, err := tmpfile.Write([]byte(output)); err != nil {
-		return string(content), errors.New("Failed to write to temporary file: " + err.Error())
-	}
-
-	cmd := exec.Command(formatCommand, "-w", tmpfile.Name())
-	if err := cmd.Run(); err != nil {
-		return string(content), err
+	newcontent := []byte(output)
+	switch opt.FormatCommand {
+	case "gofmt":
+		// format the temporary file
+		newcontent, err = format.Source([]byte(output))
+		if err != nil {
+			return string(content), errors.New("Failed to format source: " + err.Error())
+		}
+	default:
+		if newcontent, err = formatWithCommand(content, output, opt); err != nil {
+			return string(content), errors.New("Failed to format source: " + err.Error())
+		}
 	}
 
-	// read the temporary file
-	newcontent, err := ioutil.ReadFile(tmpfile.Name())
-	if err != nil {
-		return string(content), errors.New("Read Temporary File error: " + err.Error())
-	}
-
-	if diff {
-		return doDiff(content, newcontent, filename)
+	if opt.Diff {
+		return doDiff(content, newcontent, opt.Filename)
 	}
 	return string(newcontent), nil
+}
+
+func formatWithCommand(content []byte, output string, opt ReorderConfig) (newcontent []byte, err error) {
+	// we use the format command given by the user
+	// on a temporary file we need to create and remove
+	tmpfile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return content, errors.New("Failed to create temp file: " + err.Error())
+	}
+	defer os.Remove(tmpfile.Name())
+
+	// write the temporary file
+	if _, err := tmpfile.Write([]byte(output)); err != nil {
+		return content, errors.New("Failed to write temp file: " + err.Error())
+	}
+	tmpfile.Close()
+
+	// format the temporary file
+	cmd := exec.Command(opt.FormatCommand, "-w", tmpfile.Name())
+	if err := cmd.Run(); err != nil {
+		return content, err
+	}
+	// read the temporary file
+	newcontent, err = ioutil.ReadFile(tmpfile.Name())
+	if err != nil {
+		return content, errors.New("Read Temporary File error: " + err.Error())
+	}
+	return newcontent, nil
 }
