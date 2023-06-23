@@ -280,16 +280,16 @@ func (f *Foo) FooMethod3() {}
 
 func (f *Foo) FooMethod4() {}
 
-func main() {
-	fmt.Println("nothing")
+// bar comment
+func bar() {
 }
 
 // foo comment
 func foo() {
 }
 
-// bar comment
-func bar() {
+func main() {
+	fmt.Println("nothing")
 }
 
 // orphan comment 3 here

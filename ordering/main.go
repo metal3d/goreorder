@@ -64,6 +64,12 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 		})
 	}
 
+	functionNames := make([]string, 0, len(info.Functions))
+	for functionName := range info.Functions {
+		functionNames = append(functionNames, functionName)
+	}
+	sort.Strings(functionNames)
+
 	if opt.ReorderStructs {
 		info.StructNames.Sort()
 	}
@@ -131,9 +137,10 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 		}
 		removedLines += len(info.Methods[typename])
 	}
-	for i, sourceCode := range info.Functions {
+	for _, name := range functionNames {
+		sourceCode := info.Functions[name]
 		if removedLines == 0 {
-			lineNumberWhereInject = info.Functions[i].OpeningLine
+			lineNumberWhereInject = info.Functions[name].OpeningLine
 		}
 		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
 			originalContent[ln] = "// -- " + sign
