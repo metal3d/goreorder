@@ -93,3 +93,25 @@ func TestParse(t *testing.T) {
 		}
 	}
 }
+
+func TestParseReturnNoPointer(t *testing.T) {
+	const source = `package main
+
+    type A struct {}
+    func NewA() A { return A{} }
+    func (a A) A1() {}
+    `
+	parsed, err := Parse("test.go", []byte(source))
+	if err != nil {
+		t.Error(err)
+	}
+	if parsed == nil {
+		t.Error("Expected parsed info")
+	}
+	if len(parsed.Constructors) != 1 {
+		t.Errorf("Expected 1 constructor, got %d", len(parsed.Constructors))
+	}
+	if len(parsed.Methods) != 1 {
+		t.Errorf("Expected 1 method, got %d", len(parsed.Methods))
+	}
+}

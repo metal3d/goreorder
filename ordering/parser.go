@@ -166,34 +166,28 @@ func findMethods(d *ast.FuncDecl, fset *token.FileSet, sourceLines []string, met
 	if d.Recv.List[0].Type == nil { // no receiver type... weird but skip
 		return
 	}
-	if _, ok := d.Recv.List[0].Type.(*ast.StarExpr); !ok { // not a pointer receiver
-		return
-	}
-	if d.Recv.List[0].Type.(*ast.StarExpr).X == nil { // no receiver type... weird but skip
-		return
-	}
-	if _, ok := d.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident); !ok { // not named receiver, skip
-		return
-	}
 
-	// in "func (T) Method(...) ..." get the type T name
-	structName := d.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident).Name
-
-	// Create a new method
+	recv := d.Recv.List[0].Type
+	structName := ""
+	// if recv is a pointer, get the type it points to
+	if _, ok := recv.(*ast.StarExpr); ok {
+		structName = d.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident).Name
+	} else if ident, ok := recv.(*ast.Ident); ok {
+		structName = ident.Name
+	}
+	if structName == "" {
+		return
+	}
 	method := &GoType{
 		Name:        d.Name.Name,
 		OpeningLine: fset.Position(d.Pos()).Line,
 		ClosingLine: fset.Position(d.End()).Line,
 	}
-
-	// Get the method source code
 	comments := GetMethodComments(d)
 	method.SourceCode = strings.Join(comments, "\n") +
 		"\n" +
 		strings.Join(sourceLines[method.OpeningLine-1:method.ClosingLine], "\n")
 	method.OpeningLine -= len(comments)
-
-	// Add the method to the map
 	methods[structName] = append(methods[structName], method)
 }
 
@@ -205,34 +199,39 @@ func findConstructors(d *ast.FuncDecl, fset *token.FileSet, sourceLines []string
 
 	// in "func Something(...) x, T" get the type T name and check if it's in "methods" map
 	// Get the return types
+	returnType := ""
 	for _, r := range d.Type.Results.List {
 		if exp, ok := r.Type.(*ast.StarExpr); ok {
 			if _, ok := exp.X.(*ast.Ident); !ok {
 				continue
 			}
-			returnType := exp.X.(*ast.Ident).Name
-			// Bug: constructors are not detected if the type is not a method receiver
-			//if _, ok := methods[returnType]; !ok {
-			//	// not a contructor for detected types above, skip
-			//	continue
-			//}
+			returnType = exp.X.(*ast.Ident).Name
+		} else if exp, ok := r.Type.(*ast.Ident); ok {
+			// same as above, but for non-pointer types
+			returnType = exp.Name
 			// Create a new method
-			method := &GoType{
-				Name:        d.Name.Name,
-				OpeningLine: fset.Position(d.Pos()).Line,
-				ClosingLine: fset.Position(d.End()).Line,
-			}
-
-			// Get the method source code
-			comments := GetMethodComments(d)
-			method.SourceCode = strings.Join(comments, "\n") +
-				"\n" +
-				strings.Join(sourceLines[method.OpeningLine-1:method.ClosingLine], "\n")
-			method.OpeningLine -= len(comments)
-
-			// Add the method to the constructors map
-			constructors[returnType] = append(constructors[returnType], method)
 		}
+		if returnType == "" {
+			return
+		}
+
+		// it the method is already in the constructor map, skip it
+		if _, ok := constructors[returnType]; ok {
+			continue
+		}
+
+		method := &GoType{
+			Name:        d.Name.Name,
+			OpeningLine: fset.Position(d.Pos()).Line,
+			ClosingLine: fset.Position(d.End()).Line,
+		}
+		// Get the method source code
+		comments := GetMethodComments(d)
+		method.SourceCode = strings.Join(comments, "\n") +
+			"\n" +
+			strings.Join(sourceLines[method.OpeningLine-1:method.ClosingLine], "\n")
+		method.OpeningLine -= len(comments)
+		constructors[returnType] = append(constructors[returnType], method)
 	}
 }
 
