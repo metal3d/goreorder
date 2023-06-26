@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	usage = `%[1]s reorders the structs (optional), methods and constructors in a Go
+	usage = `%[1]s reorders the types, methods... in a Go
 source file. By default, it will print the result to stdout. To allow %[1]s
 to write to the file, use the -write flag.`
 )
@@ -23,7 +23,7 @@ var (
 	version  = "master" // changed at compilation time
 	log      = logger.GetLogger()
 	examples = []string{
-		"$ %[1]s reorder --write --reorder-structs --format gofmt file.go",
+		"$ %[1]s reorder --write --reorder-types --format gofmt file.go",
 		"$ %[1]s reorder --diff ./mypackage",
 		"$ cat file.go | %[1]s reorder",
 	}
@@ -50,7 +50,7 @@ func main() {
 
 	cmd := cobra.Command{
 		Use:     "goreorder [flags] [file.go|directory|stdin]",
-		Short:   "goreorder reorders the structs (optional), methods and constructors in a Go source file.",
+		Short:   "goreorder reorders the vars, const, types... in a Go source file.",
 		Example: fmt.Sprintf(strings.Join(examples, "\n"), filepath.Base(os.Args[0])),
 		Long:    fmt.Sprintf(usage, filepath.Base(os.Args[0])),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -76,7 +76,7 @@ func main() {
 
 	reoderCommand := &cobra.Command{
 		Use:   "reorder [flags] [file.go|directory|stdin]",
-		Short: "Reorder stucts, methods and constructors in a Go source file.",
+		Short: "Reorder vars, consts, stucts/types/interaces, methods/functions and constructors in a Go source file.",
 		Run: func(cmd *cobra.Command, args []string) {
 			stat, _ := os.Stdin.Stat()
 			if len(args) == 0 && (stat.Mode()&os.ModeCharDevice) != 0 {
@@ -117,7 +117,7 @@ func main() {
 	reoderCommand.Flags().StringVarP(&formatToolName, "format", "f", formatToolName, "Format tool to use (gofmt or goimports)")
 	reoderCommand.Flags().BoolVarP(&write, "write", "w", write, "Write result to (source) file instead of stdout")
 	reoderCommand.Flags().BoolVarP(&verbose, "verbose", "v", verbose, "Verbose output")
-	reoderCommand.Flags().BoolVarP(&reorderStructs, "reorder-structs", "r", reorderStructs, "Reorder structs")
+	reoderCommand.Flags().BoolVarP(&reorderStructs, "reorder-types", "r", reorderStructs, "Reordering types in addition to methods")
 	reoderCommand.Flags().BoolVarP(&makeDiff, "diff", "d", makeDiff, "Make a diff instead of rewriting the file")
 	reoderCommand.Flags().StringSliceVarP(&defOrder, "order", "o", defOrder, "Order of the elements. Omitting elements is allowed, the needed elements will be appended")
 	cmd.AddCommand(reoderCommand)
@@ -257,5 +257,4 @@ func processFile(fileOrDirectoryName string, formatToolName string, reorderStruc
 	} else {
 		fmt.Println(output)
 	}
-
 }
