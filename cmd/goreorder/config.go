@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -47,13 +45,9 @@ func bindFlags(cmd *cobra.Command, v *viper.Viper) {
 	})
 }
 
-func printConfigFile(config *ReorderConfig, output ...io.Writer) error {
+func printConfigFile(config *ReorderConfig) error {
 	// for all flags, get the current value and set it to conf
-	var out io.Writer = os.Stdout
-	if len(output) > 0 {
-		out = output[0]
-	}
-	enc := yaml.NewEncoder(out)
+	enc := yaml.NewEncoder(defaultOutpout)
 	enc.SetIndent(2)
 	return enc.Encode(&config)
 }

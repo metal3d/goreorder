@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -9,7 +10,6 @@ import (
 
 	logger "github.com/metal3d/goreorder/log"
 	"github.com/metal3d/goreorder/ordering"
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -33,6 +33,7 @@ var (
 		"$ %[1]s completion fish",
 		"$ %[1]s completion powershell",
 	}
+	defaultOutpout io.Writer = os.Stdout
 )
 
 type ReorderConfig struct {
@@ -44,59 +45,10 @@ type ReorderConfig struct {
 	DefOrder       []string `yaml:"order"`
 }
 
-func buildCommand() *cobra.Command {
-
-	var (
-		help        bool
-		showVersion bool
-	)
-
-	cmd := cobra.Command{
-		Use:     "goreorder [flags] [file.go|directory|stdin]",
-		Short:   "goreorder reorders the vars, const, types... in a Go source file.",
-		Example: fmt.Sprintf(strings.Join(examples, "\n"), filepath.Base(os.Args[0])),
-		Long:    fmt.Sprintf(usage, filepath.Base(os.Args[0])),
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			return initializeViper(cmd)
-		},
-		Run: func(cmd *cobra.Command, args []string) {
-			if help {
-				cmd.Usage()
-				os.Exit(0)
-			}
-			if showVersion {
-				fmt.Println(version)
-				os.Exit(0)
-			}
-
-			stat, _ := os.Stdin.Stat()
-			if len(args) == 0 && (stat.Mode()&os.ModeCharDevice) != 0 {
-				cmd.Usage()
-				os.Exit(1)
-			}
-		},
-	}
-	cmd.Flags().BoolVarP(&showVersion, "version", "V", showVersion, "Show version")
-	cmd.Flags().BoolVarP(&help, "help", "h", help, "Show help")
-
-	config := &ReorderConfig{
-		FormatToolName: "gofmt",
-		Write:          false,
-		Verbose:        false,
-		ReorderTypes:   false,
-		MakeDiff:       false,
-	}
-	reorderCommand := buildReorderCommand(config)
-	cmd.AddCommand(reorderCommand)
-
-	cmd.AddCommand(buildPrintConfigCommand(config, reorderCommand))
-	cmd.AddCommand(buildCompletionCommand())
-	return &cmd
-}
-
 func main() {
-	if err := buildCommand().Execute(); err != nil {
-		log.Fatal(err)
+	if err := buildMainCommand().Execute(); err != nil {
+		fmt.Println(fmt.Errorf("%v", err))
+		os.Exit(1)
 	}
 }
 

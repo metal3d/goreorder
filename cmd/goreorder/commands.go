@@ -14,6 +14,36 @@ import (
 	"github.com/spf13/viper"
 )
 
+func buildMainCommand() *cobra.Command {
+
+	cmd := cobra.Command{
+		Use:     "goreorder [flags] [file.go|directory|stdin]",
+		Short:   "goreorder reorders the vars, const, types... in a Go source file.",
+		Example: fmt.Sprintf(strings.Join(examples, "\n"), filepath.Base(os.Args[0])),
+		Long:    fmt.Sprintf(usage, filepath.Base(os.Args[0])),
+		Version: version,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			return initializeViper(cmd)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("You need to specify a command or an option")
+		},
+	}
+
+	config := &ReorderConfig{
+		FormatToolName: "gofmt",
+		Write:          false,
+		Verbose:        false,
+		ReorderTypes:   false,
+		MakeDiff:       false,
+	}
+	reorderCommand := buildReorderCommand(config)
+	cmd.AddCommand(reorderCommand)
+	cmd.AddCommand(buildPrintConfigCommand(config, reorderCommand))
+	cmd.AddCommand(buildCompletionCommand())
+	return &cmd
+}
+
 func buildCompletionCommand() *cobra.Command {
 	noDocumentation := false
 	bashv1Completion := false
@@ -22,23 +52,24 @@ func buildCompletionCommand() *cobra.Command {
 		ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
 		Short:     "Generates completion scripts",
 		Example:   fmt.Sprintf(strings.Join(completionExamples, "\n"), filepath.Base(os.Args[0])),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return errors.New("shell type required")
+			}
 			switch args[0] {
 			case "bash":
 				if bashv1Completion {
-					cmd.Root().GenBashCompletion(os.Stdout)
-					return
+					return cmd.Root().GenBashCompletion(defaultOutpout)
 				}
-				cmd.Root().GenBashCompletionV2(os.Stdout, !noDocumentation)
+				return cmd.Root().GenBashCompletionV2(defaultOutpout, !noDocumentation)
 			case "zsh":
-				cmd.Root().GenZshCompletion(os.Stdout)
+				return cmd.Root().GenZshCompletion(defaultOutpout)
 			case "fish":
-				cmd.Root().GenFishCompletion(os.Stdout, true)
+				return cmd.Root().GenFishCompletion(defaultOutpout, true)
 			case "powershell":
-				cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+				return cmd.Root().GenPowerShellCompletionWithDesc(defaultOutpout)
 			default:
-				cmd.Usage()
-				os.Exit(1)
+				return fmt.Errorf("unsupported shell type %q", args[0])
 			}
 		},
 	}

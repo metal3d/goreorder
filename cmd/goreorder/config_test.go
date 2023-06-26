@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/metal3d/goreorder/ordering"
@@ -9,7 +11,7 @@ import (
 )
 
 func TestNoConfigFile(t *testing.T) {
-	writer := bytes.NewBuffer([]byte{})
+	defaultOutpout = bytes.NewBuffer([]byte{})
 	printConfigFile(&ReorderConfig{
 		FormatToolName: "gofmt",
 		Write:          false,
@@ -17,10 +19,10 @@ func TestNoConfigFile(t *testing.T) {
 		ReorderTypes:   false,
 		MakeDiff:       false,
 		DefOrder:       ordering.DefaultOrder,
-	}, writer)
+	})
 
 	conf := make(map[string]interface{})
-	err := yaml.Unmarshal(writer.Bytes(), &conf)
+	err := yaml.Unmarshal(defaultOutpout.(*bytes.Buffer).Bytes(), &conf)
 	if err != nil {
 		t.Error(err)
 	}
@@ -56,4 +58,48 @@ func TestNoConfigFile(t *testing.T) {
 	} else {
 		t.Error("order should be default")
 	}
+}
+
+func TestChangeConfigFileShouldSetFlags(t *testing.T) {
+	const yamlFile = `
+format: gofmt
+write: true
+order:
+- type
+- var
+- const
+`
+	currentDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(currentDir)
+	tmpDir, err := ioutil.TempDir("", "goreorder-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+	os.Chdir(tmpDir)
+	err = ioutil.WriteFile(".goreorder", []byte(yamlFile), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// ok the configuration file is now set, let's see if it works
+	config := &ReorderConfig{
+		FormatToolName: "gofmt",
+		Write:          false,
+		Verbose:        false,
+		ReorderTypes:   false,
+		MakeDiff:       false,
+		DefOrder:       ordering.DefaultOrder,
+	}
+	reorderCommand := buildReorderCommand(config)
+	cmd := buildPrintConfigCommand(config, reorderCommand)
+	cmd.Execute()
+	order := reorderCommand.Flag("order").Value.String()
+	if order != "[type,var,const]" {
+		t.Error("order should be type,var,const")
+	}
+
 }
