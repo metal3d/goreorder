@@ -9,14 +9,14 @@ var _ sort.Interface = (*StingList)(nil)
 // Implement sort.Interface
 type StingList []string
 
+// Add adds a string to the list.
+func (s *StingList) Add(str string) {
+	*s = append(*s, str)
+}
+
 // Len returns the length of the list.
 func (s *StingList) Len() int {
 	return len(*s)
-}
-
-// Swap swaps the elements with indexes i and j.
-func (s StingList) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
 }
 
 // Less reports whether the element with index i should sort before the element with index j.
@@ -29,7 +29,7 @@ func (s *StingList) Sort() {
 	sort.Sort(s)
 }
 
-// Add adds a string to the list.
-func (s *StingList) Add(str string) {
-	*s = append(*s, str)
+// Swap swaps the elements with indexes i and j.
+func (s StingList) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
 }

@@ -14,6 +14,59 @@ import (
 	"github.com/spf13/viper"
 )
 
+func buildCompletionCommand() *cobra.Command {
+	noDocumentation := false
+	bashv1Completion := false
+	completionCmd := &cobra.Command{
+		Use:       "completion [bash|zsh|fish|powershell]",
+		ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
+		Short:     "Generates completion scripts",
+		Example:   fmt.Sprintf(strings.Join(completionExamples, "\n"), filepath.Base(os.Args[0])),
+		Run: func(cmd *cobra.Command, args []string) {
+			switch args[0] {
+			case "bash":
+				if bashv1Completion {
+					cmd.Root().GenBashCompletion(os.Stdout)
+					return
+				}
+				cmd.Root().GenBashCompletionV2(os.Stdout, !noDocumentation)
+			case "zsh":
+				cmd.Root().GenZshCompletion(os.Stdout)
+			case "fish":
+				cmd.Root().GenFishCompletion(os.Stdout, true)
+			case "powershell":
+				cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+			default:
+				cmd.Usage()
+				os.Exit(1)
+			}
+		},
+	}
+	completionCmd.Flags().BoolVar(
+		&noDocumentation,
+		"no-documentation", noDocumentation,
+		"Do not include documentation")
+	completionCmd.Flags().BoolVar(
+		&bashv1Completion,
+		"bashv1", bashv1Completion,
+		"Use bash version 1 completion")
+
+	return completionCmd
+}
+
+func buildPrintConfigCommand(config *ReorderConfig, reorderCommand *cobra.Command) *cobra.Command {
+	return &cobra.Command{
+		Use:   "print-config",
+		Short: "Print the configuration",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			initializeViper(reorderCommand)
+			bindFlags(reorderCommand, viper.GetViper())
+			printConfigFile(config)
+			return nil
+		},
+	}
+}
+
 func buildReorderCommand(config *ReorderConfig) *cobra.Command {
 	reoderCommand := &cobra.Command{
 		Use:   "reorder [flags] [file.go|directory|stdin]",
@@ -81,57 +134,4 @@ func buildReorderCommand(config *ReorderConfig) *cobra.Command {
 		"Order of the elements. Omitting elements is allowed, the needed elements will be appended")
 	return reoderCommand
 
-}
-
-func buildPrintConfigCommand(config *ReorderConfig, reorderCommand *cobra.Command) *cobra.Command {
-	return &cobra.Command{
-		Use:   "print-config",
-		Short: "Print the configuration",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			initializeViper(reorderCommand)
-			bindFlags(reorderCommand, viper.GetViper())
-			printConfigFile(config)
-			return nil
-		},
-	}
-}
-
-func buildCompletionCommand() *cobra.Command {
-	noDocumentation := false
-	bashv1Completion := false
-	completionCmd := &cobra.Command{
-		Use:       "completion [bash|zsh|fish|powershell]",
-		ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
-		Short:     "Generates completion scripts",
-		Example:   fmt.Sprintf(strings.Join(completionExamples, "\n"), filepath.Base(os.Args[0])),
-		Run: func(cmd *cobra.Command, args []string) {
-			switch args[0] {
-			case "bash":
-				if bashv1Completion {
-					cmd.Root().GenBashCompletion(os.Stdout)
-					return
-				}
-				cmd.Root().GenBashCompletionV2(os.Stdout, !noDocumentation)
-			case "zsh":
-				cmd.Root().GenZshCompletion(os.Stdout)
-			case "fish":
-				cmd.Root().GenFishCompletion(os.Stdout, true)
-			case "powershell":
-				cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
-			default:
-				cmd.Usage()
-				os.Exit(1)
-			}
-		},
-	}
-	completionCmd.Flags().BoolVar(
-		&noDocumentation,
-		"no-documentation", noDocumentation,
-		"Do not include documentation")
-	completionCmd.Flags().BoolVar(
-		&bashv1Completion,
-		"bashv1", bashv1Completion,
-		"Use bash version 1 completion")
-
-	return completionCmd
 }

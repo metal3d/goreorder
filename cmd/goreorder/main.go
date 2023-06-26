@@ -18,15 +18,6 @@ source file. By default, it will print the result to stdout. To allow %[1]s
 to write to the file, use the -write flag.`
 )
 
-type ReorderConfig struct {
-	FormatToolName string   `yaml:"format"`
-	Write          bool     `yaml:"write"`
-	Verbose        bool     `yaml:"verbose"`
-	ReorderTypes   bool     `yaml:"reorder-types"`
-	MakeDiff       bool     `yaml:"diff"`
-	DefOrder       []string `yaml:"order"`
-}
-
 var (
 	version  = "master" // changed at compilation time
 	log      = logger.GetLogger()
@@ -44,10 +35,13 @@ var (
 	}
 )
 
-func main() {
-	if err := buildCommand().Execute(); err != nil {
-		log.Fatal(err)
-	}
+type ReorderConfig struct {
+	FormatToolName string   `yaml:"format"`
+	Write          bool     `yaml:"write"`
+	Verbose        bool     `yaml:"verbose"`
+	ReorderTypes   bool     `yaml:"reorder-types"`
+	MakeDiff       bool     `yaml:"diff"`
+	DefOrder       []string `yaml:"order"`
 }
 
 func buildCommand() *cobra.Command {
@@ -100,36 +94,10 @@ func buildCommand() *cobra.Command {
 	return &cmd
 }
 
-func run(config *ReorderConfig, args ...string) {
-
-	// is there something in stdin?
-	filename := ""
-	var input []byte
-	var err error
-	stat, _ := os.Stdin.Stat()
-	if (stat.Mode() & os.ModeCharDevice) == 0 {
-		// read from stdin
-		input, err = ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			log.Fatal(err)
-		}
-		filename = "stdin.go"
-		config.Write = false
-		log.Println("Processing stdin, write is set to false")
-	} else {
-		// read from file or directory
-		filename = args[0]
-		if filename == "" {
-			log.Println("filename is empty")
-			os.Exit(1)
-		}
-		_, err := os.Stat(filename)
-		if err != nil {
-			log.Fatal(err)
-		}
+func main() {
+	if err := buildCommand().Execute(); err != nil {
+		log.Fatal(err)
 	}
-
-	processFile(filename, input, config)
 }
 
 func processFile(fileOrDirectoryName string, input []byte, config *ReorderConfig) {
@@ -201,4 +169,36 @@ func processFile(fileOrDirectoryName string, input []byte, config *ReorderConfig
 	} else {
 		fmt.Println(output)
 	}
+}
+
+func run(config *ReorderConfig, args ...string) {
+
+	// is there something in stdin?
+	filename := ""
+	var input []byte
+	var err error
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		// read from stdin
+		input, err = ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			log.Fatal(err)
+		}
+		filename = "stdin.go"
+		config.Write = false
+		log.Println("Processing stdin, write is set to false")
+	} else {
+		// read from file or directory
+		filename = args[0]
+		if filename == "" {
+			log.Println("filename is empty")
+			os.Exit(1)
+		}
+		_, err := os.Stat(filename)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	processFile(filename, input, config)
 }

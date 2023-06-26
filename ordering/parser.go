@@ -133,29 +133,115 @@ func GetTypeComments(d *ast.GenDecl) (comments []string) {
 	return
 }
 
-func findTypes(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, typeNames *StingList, types map[string]*GoType) {
-	if d.Tok != token.TYPE {
+func findConstructors(d *ast.FuncDecl, fset *token.FileSet, sourceLines []string, methods, constructors map[string][]*GoType) {
+
+	if d.Type == nil || d.Type.Results == nil || len(d.Type.Results.List) == 0 { // no return type
+		return
+	}
+
+	// in "func Something(...) x, T" get the type T name and check if it's in "methods" map
+	// Get the return types
+	returnType := ""
+	for _, r := range d.Type.Results.List {
+		if exp, ok := r.Type.(*ast.StarExpr); ok {
+			if _, ok := exp.X.(*ast.Ident); !ok {
+				continue
+			}
+			returnType = exp.X.(*ast.Ident).Name
+		} else if exp, ok := r.Type.(*ast.Ident); ok {
+			// same as above, but for non-pointer types
+			returnType = exp.Name
+			// Create a new method
+		}
+		if returnType == "" {
+			return
+		}
+
+		// it the method is already in the constructor map, skip it
+		if _, ok := constructors[returnType]; ok {
+			continue
+		}
+
+		method := &GoType{
+			Name:        d.Name.Name,
+			OpeningLine: fset.Position(d.Pos()).Line,
+			ClosingLine: fset.Position(d.End()).Line,
+		}
+		// Get the method source code
+		comments := GetMethodComments(d)
+		if len(comments) > 0 {
+			method.SourceCode = strings.Join(comments, "\n") + "\n"
+		}
+		method.SourceCode += strings.Join(sourceLines[method.OpeningLine-1:method.ClosingLine], "\n")
+		method.OpeningLine -= len(comments)
+		constructors[returnType] = append(constructors[returnType], method)
+	}
+}
+
+func findFunctions(d *ast.FuncDecl, fset *token.FileSet, sourceLines []string, functions map[string]*GoType, constructors map[string][]*GoType) {
+	if d.Recv != nil {
+		return // because it's a method
+	}
+	if d.Name == nil {
+		return
+	}
+	if d.Name.Name == "" {
+		return
+	}
+
+	if inConstructors(constructors, d.Name.Name) {
+		return
+	}
+
+	functions[d.Name.Name] = &GoType{
+		Name:        d.Name.Name,
+		OpeningLine: fset.Position(d.Pos()).Line,
+		ClosingLine: fset.Position(d.End()).Line,
+	}
+	comments := GetMethodComments(d)
+	if len(comments) > 0 {
+		functions[d.Name.Name].SourceCode = strings.Join(comments, "\n") + "\n"
+	}
+	functions[d.Name.Name].SourceCode += strings.Join(sourceLines[functions[d.Name.Name].OpeningLine-1:functions[d.Name.Name].ClosingLine], "\n")
+	functions[d.Name.Name].OpeningLine -= len(comments)
+}
+
+func findGlobalVarsAndConsts(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, varTypes, constTypes map[string]*GoType) {
+	if d.Tok != token.VAR && d.Tok != token.CONST {
 		return
 	}
 	for _, spec := range d.Specs {
-		if s, ok := spec.(*ast.TypeSpec); ok {
-			// return if it's an interface
-			if _, ok := s.Type.(*ast.InterfaceType); ok {
-				return
+		if s, ok := spec.(*ast.ValueSpec); ok {
+			for _, name := range s.Names {
+				// log the source code for the variable or constant
+				varDef := &GoType{
+					Name:        name.Name,
+					OpeningLine: fset.Position(d.Pos()).Line,
+					ClosingLine: fset.Position(d.End()).Line,
+				}
+				comments := GetTypeComments(d)
+				if len(comments) > 0 {
+					varDef.SourceCode = strings.Join(comments, "\n") + "\n"
+				}
+				varDef.SourceCode += strings.Join(sourceLines[varDef.OpeningLine-1:varDef.ClosingLine], "\n")
+				varDef.OpeningLine -= len(comments)
+
+				// this time, if const or vars are defined in a parenthesis, the source code is the same for all
+				// found var or const. So, what we do is to check if the source code is already in the map, and if
+				// so, we skip it.
+				// we will use the source code signature as the key for the map
+				signature := fmt.Sprintf("%d-%d", varDef.OpeningLine, varDef.ClosingLine)
+				if _, ok := varTypes[signature]; ok {
+					continue
+				}
+
+				switch d.Tok {
+				case token.CONST:
+					constTypes[signature] = varDef
+				case token.VAR:
+					varTypes[signature] = varDef
+				}
 			}
-			typeDef := &GoType{
-				Name:        s.Name.Name,
-				OpeningLine: fset.Position(d.Pos()).Line,
-				ClosingLine: fset.Position(d.End()).Line,
-			}
-			comments := GetTypeComments(d)
-			if len(comments) > 0 {
-				typeDef.SourceCode = strings.Join(comments, "\n") + "\n"
-			}
-			typeDef.SourceCode += strings.Join(sourceLines[typeDef.OpeningLine-1:typeDef.ClosingLine], "\n")
-			typeDef.OpeningLine -= len(comments)
-			types[s.Name.Name] = typeDef
-			typeNames.Add(s.Name.Name)
 		}
 	}
 }
@@ -224,117 +310,31 @@ func findMethods(d *ast.FuncDecl, fset *token.FileSet, sourceLines []string, met
 	methods[structName] = append(methods[structName], method)
 }
 
-func findConstructors(d *ast.FuncDecl, fset *token.FileSet, sourceLines []string, methods, constructors map[string][]*GoType) {
-
-	if d.Type == nil || d.Type.Results == nil || len(d.Type.Results.List) == 0 { // no return type
-		return
-	}
-
-	// in "func Something(...) x, T" get the type T name and check if it's in "methods" map
-	// Get the return types
-	returnType := ""
-	for _, r := range d.Type.Results.List {
-		if exp, ok := r.Type.(*ast.StarExpr); ok {
-			if _, ok := exp.X.(*ast.Ident); !ok {
-				continue
-			}
-			returnType = exp.X.(*ast.Ident).Name
-		} else if exp, ok := r.Type.(*ast.Ident); ok {
-			// same as above, but for non-pointer types
-			returnType = exp.Name
-			// Create a new method
-		}
-		if returnType == "" {
-			return
-		}
-
-		// it the method is already in the constructor map, skip it
-		if _, ok := constructors[returnType]; ok {
-			continue
-		}
-
-		method := &GoType{
-			Name:        d.Name.Name,
-			OpeningLine: fset.Position(d.Pos()).Line,
-			ClosingLine: fset.Position(d.End()).Line,
-		}
-		// Get the method source code
-		comments := GetMethodComments(d)
-		if len(comments) > 0 {
-			method.SourceCode = strings.Join(comments, "\n") + "\n"
-		}
-		method.SourceCode += strings.Join(sourceLines[method.OpeningLine-1:method.ClosingLine], "\n")
-		method.OpeningLine -= len(comments)
-		constructors[returnType] = append(constructors[returnType], method)
-	}
-}
-
-func findGlobalVarsAndConsts(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, varTypes, constTypes map[string]*GoType) {
-	if d.Tok != token.VAR && d.Tok != token.CONST {
+func findTypes(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, typeNames *StingList, types map[string]*GoType) {
+	if d.Tok != token.TYPE {
 		return
 	}
 	for _, spec := range d.Specs {
-		if s, ok := spec.(*ast.ValueSpec); ok {
-			for _, name := range s.Names {
-				// log the source code for the variable or constant
-				varDef := &GoType{
-					Name:        name.Name,
-					OpeningLine: fset.Position(d.Pos()).Line,
-					ClosingLine: fset.Position(d.End()).Line,
-				}
-				comments := GetTypeComments(d)
-				if len(comments) > 0 {
-					varDef.SourceCode = strings.Join(comments, "\n") + "\n"
-				}
-				varDef.SourceCode += strings.Join(sourceLines[varDef.OpeningLine-1:varDef.ClosingLine], "\n")
-				varDef.OpeningLine -= len(comments)
-
-				// this time, if const or vars are defined in a parenthesis, the source code is the same for all
-				// found var or const. So, what we do is to check if the source code is already in the map, and if
-				// so, we skip it.
-				// we will use the source code signature as the key for the map
-				signature := fmt.Sprintf("%d-%d", varDef.OpeningLine, varDef.ClosingLine)
-				if _, ok := varTypes[signature]; ok {
-					continue
-				}
-
-				switch d.Tok {
-				case token.CONST:
-					constTypes[signature] = varDef
-				case token.VAR:
-					varTypes[signature] = varDef
-				}
+		if s, ok := spec.(*ast.TypeSpec); ok {
+			// return if it's an interface
+			if _, ok := s.Type.(*ast.InterfaceType); ok {
+				return
 			}
+			typeDef := &GoType{
+				Name:        s.Name.Name,
+				OpeningLine: fset.Position(d.Pos()).Line,
+				ClosingLine: fset.Position(d.End()).Line,
+			}
+			comments := GetTypeComments(d)
+			if len(comments) > 0 {
+				typeDef.SourceCode = strings.Join(comments, "\n") + "\n"
+			}
+			typeDef.SourceCode += strings.Join(sourceLines[typeDef.OpeningLine-1:typeDef.ClosingLine], "\n")
+			typeDef.OpeningLine -= len(comments)
+			types[s.Name.Name] = typeDef
+			typeNames.Add(s.Name.Name)
 		}
 	}
-}
-
-func findFunctions(d *ast.FuncDecl, fset *token.FileSet, sourceLines []string, functions map[string]*GoType, constructors map[string][]*GoType) {
-	if d.Recv != nil {
-		return // because it's a method
-	}
-	if d.Name == nil {
-		return
-	}
-	if d.Name.Name == "" {
-		return
-	}
-
-	if inConstructors(constructors, d.Name.Name) {
-		return
-	}
-
-	functions[d.Name.Name] = &GoType{
-		Name:        d.Name.Name,
-		OpeningLine: fset.Position(d.Pos()).Line,
-		ClosingLine: fset.Position(d.End()).Line,
-	}
-	comments := GetMethodComments(d)
-	if len(comments) > 0 {
-		functions[d.Name.Name].SourceCode = strings.Join(comments, "\n") + "\n"
-	}
-	functions[d.Name.Name].SourceCode += strings.Join(sourceLines[functions[d.Name.Name].OpeningLine-1:functions[d.Name.Name].ClosingLine], "\n")
-	functions[d.Name.Name].OpeningLine -= len(comments)
 }
 
 func inConstructors(constructorMap map[string][]*GoType, funcname string) bool {

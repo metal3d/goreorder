@@ -12,8 +12,6 @@ import (
 	"strings"
 )
 
-type Order = string
-
 const (
 	Const     Order = "const"
 	Var       Order = "var"
@@ -24,6 +22,7 @@ const (
 
 var DefaultOrder = []Order{Const, Var, Interface, Type, Func}
 
+type Order = string
 type ReorderConfig struct {
 	Filename       string
 	FormatCommand  string
@@ -31,6 +30,158 @@ type ReorderConfig struct {
 	Diff           bool
 	Src            interface{}
 	DefOrder       []Order
+}
+
+func formatWithCommand(content []byte, output string, opt ReorderConfig) (newcontent []byte, err error) {
+	// we use the format command given by the user
+	// on a temporary file we need to create and remove
+	tmpfile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return content, errors.New("Failed to create temp file: " + err.Error())
+	}
+	defer os.Remove(tmpfile.Name())
+
+	// write the temporary file
+	if _, err := tmpfile.Write([]byte(output)); err != nil {
+		return content, errors.New("Failed to write temp file: " + err.Error())
+	}
+	tmpfile.Close()
+
+	// format the temporary file
+	cmd := exec.Command(opt.FormatCommand, "-w", tmpfile.Name())
+	if err := cmd.Run(); err != nil {
+		return content, err
+	}
+	// read the temporary file
+	newcontent, err = ioutil.ReadFile(tmpfile.Name())
+	if err != nil {
+		return content, errors.New("Read Temporary File error: " + err.Error())
+	}
+	return newcontent, nil
+}
+
+// const and vars
+func processConst(
+	info *ParsedInfo,
+	constNames, originalContent, source []string,
+	removedLines, lineNumberWhereInject *int,
+	sign string,
+) []string {
+	for i, name := range constNames {
+		sourceCode := info.Constants[constNames[i]]
+		if *removedLines == 0 {
+			*lineNumberWhereInject = info.Constants[name].OpeningLine
+		}
+		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
+			originalContent[ln] = "// -- " + sign
+		}
+		source = append(source, sourceCode.SourceCode)
+		*removedLines += len(info.Constants)
+	}
+	return source
+}
+
+func processFunctions(
+	info *ParsedInfo,
+	functionNames, originalContent, source []string,
+	removedLines, lineNumberWhereInject *int,
+	sign string,
+) []string {
+	for _, name := range functionNames {
+		sourceCode := info.Functions[name]
+		if *removedLines == 0 {
+			*lineNumberWhereInject = info.Functions[name].OpeningLine
+		}
+		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
+			originalContent[ln] = "// -- " + sign
+		}
+		source = append(source, "\n"+sourceCode.SourceCode)
+		*removedLines += len(info.Functions)
+	}
+	return source
+}
+
+func processInterfaces(
+	info *ParsedInfo,
+	originalContent, source []string,
+	removedLines, lineNumberWhereInject *int,
+	sign string,
+) []string {
+
+	for _, name := range *info.InterfaceNames {
+		sourceCode := info.Interfaces[name]
+		if *removedLines == 0 {
+			*lineNumberWhereInject = info.Interfaces[name].OpeningLine
+		}
+		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
+			originalContent[ln] = "// -- " + sign
+		}
+		source = append(source, sourceCode.SourceCode)
+		*removedLines += len(info.Interfaces)
+	}
+	return source
+}
+
+func processTypes(
+	info *ParsedInfo,
+	originalContent, source []string,
+	removedLines, lineNumberWhereInject *int,
+	sign string,
+) []string {
+
+	for _, typename := range *info.TypeNames {
+		if *removedLines == 0 {
+			*lineNumberWhereInject = info.Types[typename].OpeningLine
+		}
+		// replace the definitions by "// -- line to remove
+		for ln := info.Types[typename].OpeningLine - 1; ln < info.Types[typename].ClosingLine; ln++ {
+			originalContent[ln] = "// -- " + sign
+		}
+		*removedLines += info.Types[typename].ClosingLine - info.Types[typename].OpeningLine
+		// add the struct definition to "source"
+		source = append(source, info.Types[typename].SourceCode)
+
+		// same for constructors
+		for _, constructor := range info.Constructors[typename] {
+			for ln := constructor.OpeningLine - 1; ln < constructor.ClosingLine; ln++ {
+				originalContent[ln] = "// -- " + sign
+			}
+			// add the constructor to "source"
+			source = append(source, "\n"+constructor.SourceCode)
+		}
+		*removedLines += len(info.Constructors[typename])
+
+		// same for methods
+		for _, method := range info.Methods[typename] {
+			for ln := method.OpeningLine - 1; ln < method.ClosingLine; ln++ {
+				originalContent[ln] = "// -- " + sign
+			}
+			// add the method to "source"
+			source = append(source, "\n"+method.SourceCode)
+		}
+		*removedLines += len(info.Methods[typename])
+	}
+	return source
+}
+
+func processVars(
+	info *ParsedInfo,
+	varNames, originalContent, source []string,
+	removedLines, lineNumberWhereInject *int,
+	sign string,
+) []string {
+	for i, name := range varNames {
+		sourceCode := info.Variables[varNames[i]]
+		if *removedLines == 0 {
+			*lineNumberWhereInject = info.Variables[name].OpeningLine
+		}
+		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
+			originalContent[ln] = "// -- " + sign
+		}
+		source = append(source, sourceCode.SourceCode)
+		*removedLines += len(info.Variables)
+	}
+	return source
 }
 
 // ReorderSource reorders the source code in the given filename.
@@ -205,156 +356,4 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 		return doDiff(content, newcontent, opt.Filename)
 	}
 	return string(newcontent), nil
-}
-
-func formatWithCommand(content []byte, output string, opt ReorderConfig) (newcontent []byte, err error) {
-	// we use the format command given by the user
-	// on a temporary file we need to create and remove
-	tmpfile, err := ioutil.TempFile("", "")
-	if err != nil {
-		return content, errors.New("Failed to create temp file: " + err.Error())
-	}
-	defer os.Remove(tmpfile.Name())
-
-	// write the temporary file
-	if _, err := tmpfile.Write([]byte(output)); err != nil {
-		return content, errors.New("Failed to write temp file: " + err.Error())
-	}
-	tmpfile.Close()
-
-	// format the temporary file
-	cmd := exec.Command(opt.FormatCommand, "-w", tmpfile.Name())
-	if err := cmd.Run(); err != nil {
-		return content, err
-	}
-	// read the temporary file
-	newcontent, err = ioutil.ReadFile(tmpfile.Name())
-	if err != nil {
-		return content, errors.New("Read Temporary File error: " + err.Error())
-	}
-	return newcontent, nil
-}
-
-// const and vars
-func processConst(
-	info *ParsedInfo,
-	constNames, originalContent, source []string,
-	removedLines, lineNumberWhereInject *int,
-	sign string,
-) []string {
-	for i, name := range constNames {
-		sourceCode := info.Constants[constNames[i]]
-		if *removedLines == 0 {
-			*lineNumberWhereInject = info.Constants[name].OpeningLine
-		}
-		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
-			originalContent[ln] = "// -- " + sign
-		}
-		source = append(source, sourceCode.SourceCode)
-		*removedLines += len(info.Constants)
-	}
-	return source
-}
-
-func processVars(
-	info *ParsedInfo,
-	varNames, originalContent, source []string,
-	removedLines, lineNumberWhereInject *int,
-	sign string,
-) []string {
-	for i, name := range varNames {
-		sourceCode := info.Variables[varNames[i]]
-		if *removedLines == 0 {
-			*lineNumberWhereInject = info.Variables[name].OpeningLine
-		}
-		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
-			originalContent[ln] = "// -- " + sign
-		}
-		source = append(source, sourceCode.SourceCode)
-		*removedLines += len(info.Variables)
-	}
-	return source
-}
-
-func processInterfaces(
-	info *ParsedInfo,
-	originalContent, source []string,
-	removedLines, lineNumberWhereInject *int,
-	sign string,
-) []string {
-
-	for _, name := range *info.InterfaceNames {
-		sourceCode := info.Interfaces[name]
-		if *removedLines == 0 {
-			*lineNumberWhereInject = info.Interfaces[name].OpeningLine
-		}
-		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
-			originalContent[ln] = "// -- " + sign
-		}
-		source = append(source, sourceCode.SourceCode)
-		*removedLines += len(info.Interfaces)
-	}
-	return source
-}
-
-func processTypes(
-	info *ParsedInfo,
-	originalContent, source []string,
-	removedLines, lineNumberWhereInject *int,
-	sign string,
-) []string {
-
-	for _, typename := range *info.TypeNames {
-		if *removedLines == 0 {
-			*lineNumberWhereInject = info.Types[typename].OpeningLine
-		}
-		// replace the definitions by "// -- line to remove
-		for ln := info.Types[typename].OpeningLine - 1; ln < info.Types[typename].ClosingLine; ln++ {
-			originalContent[ln] = "// -- " + sign
-		}
-		*removedLines += info.Types[typename].ClosingLine - info.Types[typename].OpeningLine
-		// add the struct definition to "source"
-		source = append(source, info.Types[typename].SourceCode)
-
-		// same for constructors
-		for _, constructor := range info.Constructors[typename] {
-			for ln := constructor.OpeningLine - 1; ln < constructor.ClosingLine; ln++ {
-				originalContent[ln] = "// -- " + sign
-			}
-			// add the constructor to "source"
-			source = append(source, "\n"+constructor.SourceCode)
-		}
-		*removedLines += len(info.Constructors[typename])
-
-		// same for methods
-		for _, method := range info.Methods[typename] {
-			for ln := method.OpeningLine - 1; ln < method.ClosingLine; ln++ {
-				originalContent[ln] = "// -- " + sign
-			}
-			// add the method to "source"
-			source = append(source, "\n"+method.SourceCode)
-		}
-		*removedLines += len(info.Methods[typename])
-	}
-	return source
-}
-
-func processFunctions(
-	info *ParsedInfo,
-	functionNames, originalContent, source []string,
-	removedLines, lineNumberWhereInject *int,
-	sign string,
-) []string {
-	for _, name := range functionNames {
-		sourceCode := info.Functions[name]
-		if *removedLines == 0 {
-			*lineNumberWhereInject = info.Functions[name].OpeningLine
-		}
-		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
-			originalContent[ln] = "// -- " + sign
-		}
-		source = append(source, "\n"+sourceCode.SourceCode)
-		*removedLines += len(info.Functions)
-	}
-	return source
 }
