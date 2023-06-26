@@ -70,6 +70,18 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 	}
 	sort.Strings(functionNames)
 
+	varNames := make([]string, 0, len(info.Variables))
+	for varName := range info.Variables {
+		varNames = append(varNames, varName)
+	}
+	sort.Strings(varNames)
+
+	constNames := make([]string, 0, len(info.Constants))
+	for constName := range info.Constants {
+		constNames = append(constNames, constName)
+	}
+	sort.Strings(constNames)
+
 	if opt.ReorderStructs {
 		info.StructNames.Sort()
 	}
@@ -85,26 +97,31 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 
 	lineNumberWhereInject := 0
 	removedLines := 0
-	for i, sourceCode := range info.Constants {
+	// const and vars
+	for i, name := range constNames {
+		sourceCode := info.Constants[constNames[i]]
 		if removedLines == 0 {
-			lineNumberWhereInject = info.Constants[i].OpeningLine
+			lineNumberWhereInject = info.Constants[name].OpeningLine
 		}
 		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
 			originalContent[ln] = "// -- " + sign
 		}
-		source = append(source, "\n"+sourceCode.SourceCode)
+		source = append(source, sourceCode.SourceCode)
 		removedLines += len(info.Constants)
 	}
-	for i, sourceCode := range info.Variables {
+	for i, name := range varNames {
+		sourceCode := info.Variables[varNames[i]]
 		if removedLines == 0 {
-			lineNumberWhereInject = info.Variables[i].OpeningLine
+			lineNumberWhereInject = info.Variables[name].OpeningLine
 		}
 		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
 			originalContent[ln] = "// -- " + sign
 		}
-		source = append(source, "\n"+sourceCode.SourceCode)
+		source = append(source, sourceCode.SourceCode)
 		removedLines += len(info.Variables)
 	}
+
+	//  structs and methods
 	for _, typename := range *info.StructNames {
 		if removedLines == 0 {
 			lineNumberWhereInject = info.Structs[typename].OpeningLine
@@ -137,6 +154,8 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 		}
 		removedLines += len(info.Methods[typename])
 	}
+
+	// functions
 	for _, name := range functionNames {
 		sourceCode := info.Functions[name]
 		if removedLines == 0 {

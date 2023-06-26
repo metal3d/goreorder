@@ -143,11 +143,11 @@ func findStructs(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, stuc
 				ClosingLine: fset.Position(d.End()).Line,
 			}
 			comments := GetTypeComments(d)
-			typeDef.SourceCode = strings.Join(comments, "\n") +
-				"\n" +
-				strings.Join(sourceLines[typeDef.OpeningLine-1:typeDef.ClosingLine], "\n")
+			if len(comments) > 0 {
+				typeDef.SourceCode = strings.Join(comments, "\n") + "\n"
+			}
+			typeDef.SourceCode += strings.Join(sourceLines[typeDef.OpeningLine-1:typeDef.ClosingLine], "\n")
 			typeDef.OpeningLine -= len(comments)
-
 			structTypes[s.Name.Name] = typeDef
 			stuctNames.Add(s.Name.Name)
 		}
@@ -184,9 +184,10 @@ func findMethods(d *ast.FuncDecl, fset *token.FileSet, sourceLines []string, met
 		ClosingLine: fset.Position(d.End()).Line,
 	}
 	comments := GetMethodComments(d)
-	method.SourceCode = strings.Join(comments, "\n") +
-		"\n" +
-		strings.Join(sourceLines[method.OpeningLine-1:method.ClosingLine], "\n")
+	if len(comments) > 0 {
+		method.SourceCode = strings.Join(comments, "\n") + "\n"
+	}
+	method.SourceCode += strings.Join(sourceLines[method.OpeningLine-1:method.ClosingLine], "\n")
 	method.OpeningLine -= len(comments)
 	methods[structName] = append(methods[structName], method)
 }
@@ -227,9 +228,10 @@ func findConstructors(d *ast.FuncDecl, fset *token.FileSet, sourceLines []string
 		}
 		// Get the method source code
 		comments := GetMethodComments(d)
-		method.SourceCode = strings.Join(comments, "\n") +
-			"\n" +
-			strings.Join(sourceLines[method.OpeningLine-1:method.ClosingLine], "\n")
+		if len(comments) > 0 {
+			method.SourceCode = strings.Join(comments, "\n") + "\n"
+		}
+		method.SourceCode += strings.Join(sourceLines[method.OpeningLine-1:method.ClosingLine], "\n")
 		method.OpeningLine -= len(comments)
 		constructors[returnType] = append(constructors[returnType], method)
 	}
@@ -243,31 +245,32 @@ func findGlobalVarsAndConsts(d *ast.GenDecl, fset *token.FileSet, sourceLines []
 		if s, ok := spec.(*ast.ValueSpec); ok {
 			for _, name := range s.Names {
 				// log the source code for the variable or constant
-				typeDef := &GoType{
+				varDef := &GoType{
 					Name:        name.Name,
 					OpeningLine: fset.Position(d.Pos()).Line,
 					ClosingLine: fset.Position(d.End()).Line,
 				}
 				comments := GetTypeComments(d)
-				typeDef.SourceCode = strings.Join(comments, "\n") +
-					"\n" +
-					strings.Join(sourceLines[typeDef.OpeningLine-1:typeDef.ClosingLine], "\n")
-				typeDef.OpeningLine -= len(comments)
+				if len(comments) > 0 {
+					varDef.SourceCode = strings.Join(comments, "\n") + "\n"
+				}
+				varDef.SourceCode += strings.Join(sourceLines[varDef.OpeningLine-1:varDef.ClosingLine], "\n")
+				varDef.OpeningLine -= len(comments)
 
 				// this time, if const or vars are defined in a parenthesis, the source code is the same for all
 				// found var or const. So, what we do is to check if the source code is already in the map, and if
 				// so, we skip it.
 				// we will use the source code signature as the key for the map
-				signature := fmt.Sprintf("%d-%d", typeDef.OpeningLine, typeDef.ClosingLine)
+				signature := fmt.Sprintf("%d-%d", varDef.OpeningLine, varDef.ClosingLine)
 				if _, ok := varTypes[signature]; ok {
 					continue
 				}
 
 				switch d.Tok {
 				case token.CONST:
-					constTypes[signature] = typeDef
+					constTypes[signature] = varDef
 				case token.VAR:
-					varTypes[signature] = typeDef
+					varTypes[signature] = varDef
 				}
 			}
 		}
@@ -295,9 +298,10 @@ func findFunctions(d *ast.FuncDecl, fset *token.FileSet, sourceLines []string, f
 		ClosingLine: fset.Position(d.End()).Line,
 	}
 	comments := GetMethodComments(d)
-	functions[d.Name.Name].SourceCode = strings.Join(comments, "\n") +
-		"\n" +
-		strings.Join(sourceLines[functions[d.Name.Name].OpeningLine-1:functions[d.Name.Name].ClosingLine], "\n")
+	if len(comments) > 0 {
+		functions[d.Name.Name].SourceCode = strings.Join(comments, "\n") + "\n"
+	}
+	functions[d.Name.Name].SourceCode += strings.Join(sourceLines[functions[d.Name.Name].OpeningLine-1:functions[d.Name.Name].ClosingLine], "\n")
 	functions[d.Name.Name].OpeningLine -= len(comments)
 }
 
