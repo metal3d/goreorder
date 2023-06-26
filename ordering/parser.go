@@ -23,13 +23,15 @@ type GoType struct {
 
 // ParsedInfo contains information we need to sort in the source file.
 type ParsedInfo struct {
-	Functions    map[string]*GoType
-	Methods      map[string][]*GoType
-	Constructors map[string][]*GoType
-	Structs      map[string]*GoType
-	Constants    map[string]*GoType
-	Variables    map[string]*GoType
-	StructNames  *StingList
+	Functions      map[string]*GoType
+	Methods        map[string][]*GoType
+	Constructors   map[string][]*GoType
+	Types          map[string]*GoType
+	Interfaces     map[string]*GoType
+	Constants      map[string]*GoType
+	Variables      map[string]*GoType
+	TypeNames      *StingList
+	InterfaceNames *StingList
 }
 
 // Parse the given file and return the methods, constructors and structs.
@@ -42,14 +44,16 @@ func Parse(filename string, src interface{}) (*ParsedInfo, error) {
 	}
 
 	var (
-		methods      = make(map[string][]*GoType)
-		functions    = make(map[string]*GoType)
-		constructors = make(map[string][]*GoType)
-		structTypes  = make(map[string]*GoType)
-		structNames  = &StingList{}
-		varTypes     = make(map[string]*GoType)
-		constTypes   = make(map[string]*GoType)
-		sourceCode   []byte
+		methods        = make(map[string][]*GoType)
+		functions      = make(map[string]*GoType)
+		constructors   = make(map[string][]*GoType)
+		types          = make(map[string]*GoType)
+		typeNames      = &StingList{}
+		interfaceTypes = make(map[string]*GoType)
+		interfaceNames = &StingList{}
+		varTypes       = make(map[string]*GoType)
+		constTypes     = make(map[string]*GoType)
+		sourceCode     []byte
 	)
 
 	if src == nil {
@@ -71,7 +75,8 @@ func Parse(filename string, src interface{}) (*ParsedInfo, error) {
 			findMethods(d, fset, sourceLines, methods)
 		// find struct declarations
 		case *ast.GenDecl:
-			findStructs(d, fset, sourceLines, structNames, structTypes)
+			findTypes(d, fset, sourceLines, typeNames, types)
+			findInterfaces(d, fset, sourceLines, interfaceNames, interfaceTypes)
 			findGlobalVarsAndConsts(d, fset, sourceLines, varTypes, constTypes)
 		}
 	}
@@ -92,13 +97,15 @@ func Parse(filename string, src interface{}) (*ParsedInfo, error) {
 	}
 
 	return &ParsedInfo{
-		Functions:    functions,
-		Structs:      structTypes,
-		StructNames:  structNames,
-		Methods:      methods,
-		Constructors: constructors,
-		Variables:    varTypes,
-		Constants:    constTypes,
+		Functions:      functions,
+		Types:          types,
+		TypeNames:      typeNames,
+		Interfaces:     interfaceTypes,
+		InterfaceNames: interfaceNames,
+		Methods:        methods,
+		Constructors:   constructors,
+		Variables:      varTypes,
+		Constants:      constTypes,
 	}, nil
 }
 
@@ -126,16 +133,15 @@ func GetTypeComments(d *ast.GenDecl) (comments []string) {
 	return
 }
 
-func findStructs(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, stuctNames *StingList, structTypes map[string]*GoType) {
+func findTypes(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, typeNames *StingList, types map[string]*GoType) {
 	if d.Tok != token.TYPE {
 		return
 	}
 	for _, spec := range d.Specs {
 		if s, ok := spec.(*ast.TypeSpec); ok {
-			// is it a struct?
-			if _, ok := s.Type.(*ast.StructType); !ok {
-				// no... skip
-				continue
+			// return if it's an interface
+			if _, ok := s.Type.(*ast.InterfaceType); ok {
+				return
 			}
 			typeDef := &GoType{
 				Name:        s.Name.Name,
@@ -148,8 +154,34 @@ func findStructs(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, stuc
 			}
 			typeDef.SourceCode += strings.Join(sourceLines[typeDef.OpeningLine-1:typeDef.ClosingLine], "\n")
 			typeDef.OpeningLine -= len(comments)
-			structTypes[s.Name.Name] = typeDef
-			stuctNames.Add(s.Name.Name)
+			types[s.Name.Name] = typeDef
+			typeNames.Add(s.Name.Name)
+		}
+	}
+}
+
+func findInterfaces(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, interfaceNames *StingList, interfaceTypes map[string]*GoType) {
+	// finc interfaces
+	if d.Tok != token.TYPE {
+		return
+	}
+	for _, spec := range d.Specs {
+		if s, ok := spec.(*ast.TypeSpec); ok {
+			if _, ok := s.Type.(*ast.InterfaceType); ok {
+				interfaceDef := &GoType{
+					Name:        s.Name.Name,
+					OpeningLine: fset.Position(d.Pos()).Line,
+					ClosingLine: fset.Position(d.End()).Line,
+				}
+				comments := GetTypeComments(d)
+				if len(comments) > 0 {
+					interfaceDef.SourceCode = strings.Join(comments, "\n") + "\n"
+				}
+				interfaceDef.SourceCode += strings.Join(sourceLines[interfaceDef.OpeningLine-1:interfaceDef.ClosingLine], "\n")
+				interfaceDef.OpeningLine -= len(comments)
+				interfaceTypes[s.Name.Name] = interfaceDef
+				interfaceNames.Add(s.Name.Name)
+			}
 		}
 	}
 }

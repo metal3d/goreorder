@@ -45,6 +45,7 @@ func main() {
 		showVersion    = false
 		makeDiff       = false
 		help           = false
+		defOrder       = ordering.DefaultOrder
 	)
 
 	cmd := cobra.Command{
@@ -83,6 +84,22 @@ func main() {
 				os.Exit(1)
 			}
 
+			// validate order flags
+			if len(defOrder) > 0 {
+				for _, v := range defOrder {
+					found := false
+					for _, w := range ordering.DefaultOrder {
+						if v == w {
+							found = true
+							break
+						}
+					}
+					if !found {
+						log.Fatalf("Invalid order name %v, valid order name are %v", v, ordering.DefaultOrder)
+					}
+				}
+			}
+
 			// only allow gofmt or goimports
 			if formatToolName != "gofmt" && formatToolName != "goimports" {
 				log.Fatal("Only gofmt or goimports are allowed as format executable")
@@ -93,7 +110,7 @@ func main() {
 				log.Fatal("The executable '" + formatToolName + "' does not exist")
 			}
 			logger.SetVerbose(verbose)
-			run(formatToolName, reorderStructs, write, makeDiff, args...)
+			run(formatToolName, reorderStructs, write, makeDiff, defOrder, args...)
 		},
 	}
 
@@ -102,6 +119,7 @@ func main() {
 	reoderCommand.Flags().BoolVarP(&verbose, "verbose", "v", verbose, "Verbose output")
 	reoderCommand.Flags().BoolVarP(&reorderStructs, "reorder-structs", "r", reorderStructs, "Reorder structs")
 	reoderCommand.Flags().BoolVarP(&makeDiff, "diff", "d", makeDiff, "Make a diff instead of rewriting the file")
+	reoderCommand.Flags().StringSliceVarP(&defOrder, "order", "o", defOrder, "Order of the elements. Omitting elements is allowed, the needed elements will be appended")
 	cmd.AddCommand(reoderCommand)
 
 	noDocumentation := false
@@ -138,7 +156,7 @@ func main() {
 	cmd.Execute()
 }
 
-func run(formatToolName string, reorderStructs, write, diff bool, args ...string) {
+func run(formatToolName string, reorderStructs, write, diff bool, defOrder []ordering.Order, args ...string) {
 
 	// is there something in stdin?
 	filename := ""
@@ -167,10 +185,10 @@ func run(formatToolName string, reorderStructs, write, diff bool, args ...string
 		}
 	}
 
-	processFile(filename, formatToolName, reorderStructs, input, write, diff)
+	processFile(filename, formatToolName, reorderStructs, input, defOrder, write, diff)
 }
 
-func processFile(fileOrDirectoryName string, formatToolName string, reorderStructs bool, input []byte, write, diff bool) {
+func processFile(fileOrDirectoryName string, formatToolName string, reorderStructs bool, input []byte, defOrder []ordering.Order, write, diff bool) {
 	if strings.HasSuffix(fileOrDirectoryName, "_test.go") {
 		log.Println("Skipping test file: " + fileOrDirectoryName)
 		return
@@ -211,7 +229,7 @@ func processFile(fileOrDirectoryName string, formatToolName string, reorderStruc
 				return err
 			}
 			if strings.HasSuffix(path, ".go") {
-				processFile(path, formatToolName, reorderStructs, input, write, diff)
+				processFile(path, formatToolName, reorderStructs, input, defOrder, write, diff)
 			}
 			return nil
 		})
@@ -225,6 +243,7 @@ func processFile(fileOrDirectoryName string, formatToolName string, reorderStruc
 		ReorderStructs: reorderStructs,
 		Src:            input,
 		Diff:           diff,
+		DefOrder:       defOrder,
 	})
 	if err != nil {
 		log.Println("ERR: Ordering error:", err)

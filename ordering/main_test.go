@@ -176,13 +176,14 @@ func TestBadFile(t *testing.T) {
 
 func TestSpecialTypes(t *testing.T) {
 	const source = `package main
-    type foo int
-    type bar int
 
-    func main() {
-        fmt.Println("nothing")
-    }
-    `
+type bar int
+type foo int
+
+func main() {
+	fmt.Println("nothing")
+}
+`
 	content, err := ReorderSource(ReorderConfig{
 		Filename:       "foo.go",
 		FormatCommand:  "gofmt",
@@ -190,9 +191,10 @@ func TestSpecialTypes(t *testing.T) {
 		Src:            []byte(source),
 		Diff:           false,
 	})
-	if err == nil {
-		t.Error("Expected error")
+	if err != nil {
+		t.Error(err)
 	}
+
 	if content != source {
 		t.Errorf("Expected:\n%s\nGot:\n%s\n", source, content)
 	}
@@ -368,9 +370,11 @@ func (f *Foo) FooMethod1() {
 func TestNoOrderStructs(t *testing.T) {
 	const source = `package main
 type grault struct {}
+
 type xyzzy struct {}
 type bar struct {}
 type qux struct {}
+
 type quux struct {}
 type corge struct {}
 type garply struct {}
@@ -383,54 +387,32 @@ type foo struct {}
 	const expected = `package main
 
 type grault struct{}
-
 type xyzzy struct{}
-
 type bar struct{}
-
 type qux struct{}
-
 type quux struct{}
-
 type corge struct{}
-
 type garply struct{}
-
 type baz struct{}
-
 type waldo struct{}
-
 type fred struct{}
-
 type plugh struct{}
-
 type foo struct{}
 `
 
 	const orderedSource = `package main
 
 type bar struct{}
-
 type baz struct{}
-
 type corge struct{}
-
 type foo struct{}
-
 type fred struct{}
-
 type garply struct{}
-
 type grault struct{}
-
 type plugh struct{}
-
 type quux struct{}
-
 type qux struct{}
-
 type waldo struct{}
-
 type xyzzy struct{}
 `
 
