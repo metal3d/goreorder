@@ -144,7 +144,13 @@ func TestNoStruct(t *testing.T) {
     func main() {
         fmt.Println("nothing")
     }
-    `
+`
+	const expected = `package main
+
+func main() {
+	fmt.Println("nothing")
+}
+`
 	content, err := ReorderSource(ReorderConfig{
 		Filename:       "foo.go",
 		FormatCommand:  "gofmt",
@@ -152,11 +158,11 @@ func TestNoStruct(t *testing.T) {
 		Src:            []byte(source),
 		Diff:           false,
 	})
-	if err == nil {
-		t.Error("Expected error for no found struct")
+	if err != nil {
+		t.Error(err)
 	}
-	if content != source {
-		t.Errorf("Expected:\n%s\nGot:\n%s\n", source, content)
+	if content != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s\n", expected, content)
 	}
 }
 
@@ -470,5 +476,137 @@ type bar struct {}
 	}
 	if content != source {
 		t.Errorf("Expected:\n%s\nGot:\n%s\n", source, content)
+	}
+}
+
+func TestDifferentOrder(t *testing.T) {
+	const source = `package main
+
+var a = 1
+const c = 3
+var b = 2
+`
+	const expectedVC = `package main
+
+var a = 1
+var b = 2
+
+const c = 3
+`
+	const expectedCV = `package main
+
+const c = 3
+
+var a = 1
+var b = 2
+`
+
+	content, err := ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: false,
+		Src:            []byte(source),
+		Diff:           false,
+		DefOrder:       []Order{"var", "const"},
+	})
+	if err != nil {
+		t.Error(err)
+	}
+	if content != expectedVC {
+		t.Errorf("Expected:\n%s\nGot:\n%s\n", expectedVC, content)
+	}
+
+	content, err = ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: false,
+		Src:            []byte(source),
+		Diff:           false,
+		DefOrder:       []Order{"const", "var"},
+	})
+	if err != nil {
+		t.Error(err)
+	}
+	if content != expectedCV {
+		t.Errorf("Expected:\n%s\nGot:\n%s\n", expectedCV, content)
+	}
+}
+
+func TestOrderInterfaces(t *testing.T) {
+	const source = `package main
+
+type Foo interface {
+    FooMethod1()
+}
+
+type Bar interface {
+    BarMethod1()
+}
+`
+	const expected = `package main
+
+type Bar interface {
+	BarMethod1()
+}
+type Foo interface {
+	FooMethod1()
+}
+`
+	content, err := ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: false,
+		Src:            []byte(source),
+		Diff:           false,
+	})
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if content != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s\n", expected, content)
+	}
+}
+
+func TestOrderInterfacesWithComments(t *testing.T) {
+	const source = `package main
+
+// Foo is an interface
+type Foo interface {
+    FooMethod1()
+}
+
+// Bar is an interface
+type Bar interface {
+    BarMethod1()
+}
+`
+	const expected = `package main
+
+// Bar is an interface
+type Bar interface {
+	BarMethod1()
+}
+
+// Foo is an interface
+type Foo interface {
+	FooMethod1()
+}
+`
+	content, err := ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: false,
+		Src:            []byte(source),
+		Diff:           false,
+	})
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if content != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s\n", expected, content)
 	}
 }

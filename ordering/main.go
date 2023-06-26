@@ -81,9 +81,9 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 		return string(content), errors.New("Error parsing source: " + err.Error())
 	}
 
-	if len(info.Types) == 0 {
-		return string(content), errors.New("No structs found in " + opt.Filename + ", cannot reorder")
-	}
+	//if len(info.Types) == 0 {
+	//	return string(content), errors.New("No structs found in " + opt.Filename + ", cannot reorder")
+	//}
 
 	// sort methods by name
 	for _, method := range info.Methods {
