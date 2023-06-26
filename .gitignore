@@ -1,6 +1,6 @@
 coverage.out
 dist/*
 examples/*
-goreorder
+./goreorder
 .vim/*
 .cache/*
