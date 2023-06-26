@@ -1,12 +1,13 @@
-# EXPERIMENTAL go source reoreding
+# EXPERIMENTAL go source reordering
 
 > This tool is **EXPERIMENTAL!** We **strongly** recommend to back up (or use git to commit your changes) before to try it.
 
 This tool will "reorder" your sources:
 
-- alphabetic reorder your types, vars, const, methods/functions and constructors (constructors will be also placed above methods)
-- place methods and constructors below the `type` definition
-- output the result or write or even generate a patch file
+- Alphabetic reorder your types, vars, const, methods/functions and constructors (constructors will be also placed above methods)
+- Place methods and constructors below the `type` definition
+- Output the result or write or even generate a patch file
+- Use the default internal "gofmt" or use your own. That means that `goreorder` can be used in place of your formatting tool
 
 # Install
 
@@ -16,7 +17,7 @@ There are several possibilities:
     ```bash
     go install github.com/metal3d/goreorder/cmd/goreorder@latest`
     ```
-- Visit the [release page](https://github.com/metal3d/goreorder/releases) to download the desired version (to place un you `$PATH`)
+- Visit the [release page](https://github.com/metal3d/goreorder/releases) to download the desired version (to place inside your `$PATH`)
 - Use the installer:
     ```bash
     curl -sSL https://raw.githubusercontent.com/metal3d/goreorder/main/repo-tools/install.sh | bash -s
@@ -24,7 +25,7 @@ There are several possibilities:
 
 The installer script detects if you are launching it as root or standard user and installs the tool in:
 
-- `$HOME/.local/bin` or `$HOME/bin` for standard user if it exists (it fails if one of these paths doesn't exists)
+- `$HOME/.local/bin` or `$HOME/bin` for standard user if it exists (it fails if one of these paths doesn't exist)
 - `/usr/local/bin` if you're root user (or using sudo)
 
 You can also get this repository and build it with the `Makefile`:
@@ -52,9 +53,10 @@ $ goreorder reorder --diff ./mypackage
 $ cat file.go | goreorder reorder
 
 Available Commands:
-  completion  Generates completion scripts
-  help        Help about any command
-  reorder     Reorder vars, consts, stucts/types/interaces, methods/functions and constructors in a Go source file.
+  completion   Generates completion scripts
+  help         Help about any command
+  print-config Print the configuration
+  reorder      Reorder vars, consts, stucts/types/interaces, methods/functions and constructors in a Go source file.
 
 Flags:
   -h, --help      Show help
@@ -75,11 +77,15 @@ Flags:
   -d, --diff            Make a diff instead of rewriting the file
   -f, --format string   Format tool to use (gofmt or goimports) (default "gofmt")
   -h, --help            help for reorder
-  -o, --order strings   Order of the elements. Omitting elements is allowed, the needed elements will be appended (default [const,var,interface,type,func])
+  -o, --order strings   Order of the elements. Omitting elements is allowed, the needed elements will be appended
   -r, --reorder-types   Reordering types in addition to methods
   -v, --verbose         Verbose output
   -w, --write           Write result to (source) file instead of stdout
 ```
+
+You can create a `.goreorder` file containing configuration at the root of your project. Use the `goreorder print-config` command (you can redirect the output to the `.goreorder` file).
+
+> Warning, `print-config` shows the current configuration. If the file doesn't exist, so the default values are displayed. If it exists, so the current values are displayed. To reset the file, remove it and rerun the `print-config` subcommand.
 
 # Avoid destruction with `--diff`
 
