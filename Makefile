@@ -21,7 +21,7 @@ TARGETS=dist/goreorder-linux-amd64 dist/goreorder-darwin-amd64 dist/goreorder-wi
 TEST=
 
 install:
-	go install -v $(CC_OPTS) $(PACKAGE)
+	go install -v $(CC_OPTS) $(COMMAND_PACKAGE)
 
 uninstall:
 	go clean -i ./...
