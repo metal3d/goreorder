@@ -4,7 +4,7 @@
 
 This tool will "reorder" your sources:
 
-- alphabetic reorder you methods and constructors (constructors will be also placed above methods)
+- alphabetic reorder your types, vars, const, methods/functions and constructors (constructors will be also placed above methods)
 - place methods and constructors below the `type` definition
 - output the result or write or even generate a patch file
 
@@ -38,7 +38,7 @@ make install
 # Basic Usage
 
 ```
-goreorder reorders the structs (optional), methods and constructors in a Go
+goreorder reorders the types, methods... in a Go
 source file. By default, it will print the result to stdout. To allow goreorder
 to write to the file, use the -write flag.
 
@@ -47,20 +47,38 @@ Usage:
   goreorder [command]
 
 Examples:
-$ goreorder reorder --write --reorder-structs --format gofmt file.go
+$ goreorder reorder --write --reorder-types --format gofmt file.go
 $ goreorder reorder --diff ./mypackage
 $ cat file.go | goreorder reorder
 
 Available Commands:
   completion  Generates completion scripts
   help        Help about any command
-  reorder     Reorder stucts, methods and constructors in a Go source file.
+  reorder     Reorder vars, consts, stucts/types/interaces, methods/functions and constructors in a Go source file.
 
 Flags:
   -h, --help      Show help
   -V, --version   Show version
 
 Use "goreorder [command] --help" for more information about a command.
+```
+
+The reorder subcommand is the more important part:
+
+```
+Reorder vars, consts, stucts/types/interaces, methods/functions and constructors in a Go source file.
+
+Usage:
+  goreorder reorder [flags] [file.go|directory|stdin]
+
+Flags:
+  -d, --diff            Make a diff instead of rewriting the file
+  -f, --format string   Format tool to use (gofmt or goimports) (default "gofmt")
+  -h, --help            help for reorder
+  -o, --order strings   Order of the elements. Omitting elements is allowed, the needed elements will be appended (default [const,var,interface,type,func])
+  -r, --reorder-types   Reordering types in addition to methods
+  -v, --verbose         Verbose output
+  -w, --write           Write result to (source) file instead of stdout
 ```
 
 # Avoid destruction with `--diff`

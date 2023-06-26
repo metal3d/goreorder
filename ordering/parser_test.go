@@ -56,8 +56,8 @@ func TestParse(t *testing.T) {
 	if len(parsed.Variables) != 3 { // There is 3  blocs, not 4 vars
 		t.Errorf("Expected 4 vars, got %d", len(parsed.Variables))
 	}
-	if len(parsed.Structs) != 3 {
-		t.Errorf("Expected 2 structs, got %d", len(parsed.Structs))
+	if len(parsed.Types) != 3 {
+		t.Errorf("Expected 2 structs, got %d", len(parsed.Types))
 	}
 	if len(parsed.Constructors) != 1 {
 		t.Errorf("Expected 1 constructor, got %d", len(parsed.Constructors))
@@ -91,5 +91,27 @@ func TestParse(t *testing.T) {
 		default:
 			t.Errorf("Unexpected struct %s", n)
 		}
+	}
+}
+
+func TestParseReturnNoPointer(t *testing.T) {
+	const source = `package main
+
+    type A struct {}
+    func NewA() A { return A{} }
+    func (a A) A1() {}
+    `
+	parsed, err := Parse("test.go", []byte(source))
+	if err != nil {
+		t.Error(err)
+	}
+	if parsed == nil {
+		t.Error("Expected parsed info")
+	}
+	if len(parsed.Constructors) != 1 {
+		t.Errorf("Expected 1 constructor, got %d", len(parsed.Constructors))
+	}
+	if len(parsed.Methods) != 1 {
+		t.Errorf("Expected 1 method, got %d", len(parsed.Methods))
 	}
 }
