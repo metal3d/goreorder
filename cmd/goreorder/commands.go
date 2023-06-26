@@ -14,36 +14,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-func buildMainCommand() *cobra.Command {
-
-	cmd := cobra.Command{
-		Use:     "goreorder [flags] [file.go|directory|stdin]",
-		Short:   "goreorder reorders the vars, const, types... in a Go source file.",
-		Example: fmt.Sprintf(strings.Join(examples, "\n"), filepath.Base(os.Args[0])),
-		Long:    fmt.Sprintf(usage, filepath.Base(os.Args[0])),
-		Version: version,
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			return initializeViper(cmd)
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("You need to specify a command or an option")
-		},
-	}
-
-	config := &ReorderConfig{
-		FormatToolName: "gofmt",
-		Write:          false,
-		Verbose:        false,
-		ReorderTypes:   false,
-		MakeDiff:       false,
-	}
-	reorderCommand := buildReorderCommand(config)
-	cmd.AddCommand(reorderCommand)
-	cmd.AddCommand(buildPrintConfigCommand(config, reorderCommand))
-	cmd.AddCommand(buildCompletionCommand())
-	return &cmd
-}
-
 func buildCompletionCommand() *cobra.Command {
 	noDocumentation := false
 	bashv1Completion := false
@@ -83,6 +53,36 @@ func buildCompletionCommand() *cobra.Command {
 		"Use bash version 1 completion")
 
 	return completionCmd
+}
+
+func buildMainCommand() *cobra.Command {
+
+	cmd := cobra.Command{
+		Use:     "goreorder [flags] [file.go|directory|stdin]",
+		Short:   "goreorder reorders the vars, const, types... in a Go source file.",
+		Example: fmt.Sprintf(strings.Join(examples, "\n"), filepath.Base(os.Args[0])),
+		Long:    fmt.Sprintf(usage, filepath.Base(os.Args[0])),
+		Version: version,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			return initializeViper(cmd)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("You need to specify a command or an option")
+		},
+	}
+
+	config := &ReorderConfig{
+		FormatToolName: "gofmt",
+		Write:          false,
+		Verbose:        false,
+		ReorderTypes:   false,
+		MakeDiff:       false,
+	}
+	reorderCommand := buildReorderCommand(config)
+	cmd.AddCommand(reorderCommand)
+	cmd.AddCommand(buildPrintConfigCommand(config, reorderCommand))
+	cmd.AddCommand(buildCompletionCommand())
+	return &cmd
 }
 
 func buildPrintConfigCommand(config *ReorderConfig, reorderCommand *cobra.Command) *cobra.Command {
