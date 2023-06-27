@@ -1,0 +1,11 @@
+# vim: ft=yaml
+format: gofmt
+write: true
+verbose: true
+reorder-types: true
+diff: false
+order:
+- const
+- var
+- init
+- main
