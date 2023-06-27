@@ -27,6 +27,11 @@ if [ "$(id -u)" != "0" ]; then
         BIN_PATH="$HOME/bin"
     fi
 
+    if [ ! -d "$BIN_PATH" ]; then
+        echo "None of $HOME/.local/bin or $HOME/bin exists. Please create one of them and add it to PATH"
+        exit 1
+    fi
+
     # check if $BIN_PATH is in the PATH
     if ! echo $PATH | grep -q "$BIN_PATH"; then
         echo "PATH is not set correctly. Please add $BIN_PATH to PATH"
