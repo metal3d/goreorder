@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -12,37 +11,18 @@ import (
 	"github.com/metal3d/goreorder/ordering"
 )
 
-const (
-	usage = `%[1]s reorders the types, methods... in a Go
-source file. By default, it will print the result to stdout. To allow %[1]s
-to write to the file, use the -write flag.`
-)
-
 var (
-	version  = "master" // changed at compilation time
-	log      = logger.GetLogger()
-	examples = []string{
-		"$ %[1]s reorder --write --reorder-types --format gofmt file.go",
-		"$ %[1]s reorder --diff ./mypackage",
-		"$ cat file.go | %[1]s reorder",
-	}
-	completionExamples = []string{
-		"$ %[1]s completion bash",
-		"$ %[1]s completion bash -no-documentation",
-		"$ %[1]s completion zsh",
-		"$ %[1]s completion fish",
-		"$ %[1]s completion powershell",
-	}
-	defaultOutpout io.Writer = os.Stdout
+	log = logger.GetLogger()
 )
 
 func main() {
 	if err := buildMainCommand().Execute(); err != nil {
-		fmt.Println(fmt.Errorf("%v", err))
+		fmt.Println(fmt.Errorf("%w", err))
 		os.Exit(1)
 	}
 }
 
+// ReorderConfig is the configuration for the reorder command
 type ReorderConfig struct {
 	FormatToolName string   `yaml:"format"`
 	Write          bool     `yaml:"write"`
@@ -52,10 +32,9 @@ type ReorderConfig struct {
 	DefOrder       []string `yaml:"order"`
 }
 
-func processFile(fileOrDirectoryName string, input []byte, config *ReorderConfig) {
+func processFile(fileOrDirectoryName string, input []byte, config *ReorderConfig) error {
 	if strings.HasSuffix(fileOrDirectoryName, "_test.go") {
-		log.Println("Skipping test file: " + fileOrDirectoryName)
-		return
+		return fmt.Errorf("Skipping test file: " + fileOrDirectoryName)
 	}
 
 	if input != nil && len(input) != 0 {
@@ -68,36 +47,32 @@ func processFile(fileOrDirectoryName string, input []byte, config *ReorderConfig
 			Src:            input,
 		})
 		if err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("Error while reordering source: %v", err)
 		}
 		fmt.Print(string(content))
-		return
+		return nil
 	}
 
 	stat, err := os.Stat(fileOrDirectoryName)
 	if err != nil {
-		log.Fatal(err)
-		return
+		return fmt.Errorf("Error while getting file stat: %v", err)
 	}
 	if stat.IsDir() {
 		// skip vendor directory
 		if strings.HasSuffix(fileOrDirectoryName, "vendor") {
-			log.Println("Skipping vendor directory: " + fileOrDirectoryName)
-			return
+			return fmt.Errorf("Skipping vendor directory: " + fileOrDirectoryName)
 		}
 		// get all files in directory and process them
 		log.Println("Processing directory: " + fileOrDirectoryName)
-		filepath.Walk(fileOrDirectoryName, func(path string, info os.FileInfo, err error) error {
+		return filepath.Walk(fileOrDirectoryName, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				log.Fatal(err)
-				return err
+				return fmt.Errorf("Error while walking directory: %v", err)
 			}
 			if strings.HasSuffix(path, ".go") {
 				processFile(path, nil, config)
 			}
 			return nil
 		})
-		return
 	}
 
 	log.Println("Processing file: " + fileOrDirectoryName)
@@ -110,20 +85,20 @@ func processFile(fileOrDirectoryName string, input []byte, config *ReorderConfig
 		Src:            input,
 	})
 	if err != nil {
-		log.Println("ERR: Ordering error:", err)
-		return
+		return fmt.Errorf("Error while reordering file: %v", err)
 	}
 	if config.Write {
 		err = ioutil.WriteFile(fileOrDirectoryName, []byte(output), 0644)
 		if err != nil {
-			log.Fatal("ERR: Write to file failed:", err)
+			return fmt.Errorf("Error while writing to file: %v", err)
 		}
 	} else {
 		fmt.Println(output)
 	}
+	return nil
 }
 
-func run(config *ReorderConfig, args ...string) {
+func reorder(config *ReorderConfig, args ...string) error {
 
 	// is there something in stdin?
 	filename := ""
@@ -134,7 +109,7 @@ func run(config *ReorderConfig, args ...string) {
 		// read from stdin
 		input, err = ioutil.ReadAll(os.Stdin)
 		if err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("Error while reading stdin: %v", err)
 		}
 		filename = "stdin.go"
 		config.Write = false
@@ -143,14 +118,13 @@ func run(config *ReorderConfig, args ...string) {
 		// read from file or directory
 		filename = args[0]
 		if filename == "" {
-			log.Println("filename is empty")
-			os.Exit(1)
+			return fmt.Errorf("Filename is empty")
 		}
 		_, err := os.Stat(filename)
 		if err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("Error while getting file stat: %v", err)
 		}
 	}
 
-	processFile(filename, input, config)
+	return processFile(filename, input, config)
 }

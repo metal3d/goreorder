@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,29 @@ import (
 	"github.com/metal3d/goreorder/ordering"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+)
+
+const (
+	usage = `%[1]s reorders the types, methods... in a Go
+source file. By default, it will print the result to stdout. To allow %[1]s
+to write to the file, use the -write flag.`
+)
+
+var (
+	version  = "master" // changed at compilation time
+	examples = []string{
+		"$ %[1]s reorder --write --reorder-types --format gofmt file.go",
+		"$ %[1]s reorder --diff ./mypackage",
+		"$ cat file.go | %[1]s reorder",
+	}
+	completionExamples = []string{
+		"$ %[1]s completion bash",
+		"$ %[1]s completion bash -no-documentation",
+		"$ %[1]s completion zsh",
+		"$ %[1]s completion fish",
+		"$ %[1]s completion powershell",
+	}
+	defaultOutpout io.Writer = os.Stdout
 )
 
 func buildCompletionCommand() *cobra.Command {
@@ -136,8 +160,7 @@ func buildReorderCommand(config *ReorderConfig) *cobra.Command {
 				return fmt.Errorf("The executable '" + config.FormatToolName + "' does not exist")
 			}
 			logger.SetVerbose(config.Verbose)
-			run(config, args...)
-			return nil
+			return reorder(config, args...)
 		},
 	}
 
