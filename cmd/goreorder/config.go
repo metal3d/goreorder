@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -10,12 +12,24 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func initializeViper(c *cobra.Command) error {
+func initializeViper(c *cobra.Command, args ...string) error {
 	v := viper.New()
 	v.SetConfigName(".goreorder")
 	v.SetConfigType("yaml")
 
 	v.AddConfigPath(".")
+	// also, add the projet root
+	for _, arg := range args {
+		stat, err := os.Stat(arg)
+		if err != nil {
+			continue
+		}
+		if stat.IsDir() {
+			v.AddConfigPath(arg)
+		} else {
+			v.AddConfigPath(filepath.Dir(arg))
+		}
+	}
 
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {

@@ -64,7 +64,7 @@ func buildMainCommand() *cobra.Command {
 		Long:    fmt.Sprintf(usage, filepath.Base(os.Args[0])),
 		Version: version,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			return initializeViper(cmd)
+			return initializeViper(cmd, args...)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("You need to specify a command or an option")
