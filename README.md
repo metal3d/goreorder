@@ -74,15 +74,16 @@ Usage:
   goreorder reorder [flags] [file.go|directory|stdin]
 
 Flags:
-  -d, --diff            Make a diff instead of rewriting the file
+  -d, --diff            Print diff/patch format instead of rewriting the file
   -f, --format string   Format tool to use (gofmt or goimports) (default "gofmt")
   -h, --help            help for reorder
-  -o, --order strings   Order of the elements. You can omit some elements, they will be added at the end.
-                        There are 2 special values that are not part of the default order: "init" and "main". If
-                        you specify "init" or "main" in the order, they will be added placed where you put them
-                        and so they will not be included in "func". This to allow to have the init() function
-                        and the main() function at the top of the file. Or whatever you want.
-                        Allowed values are: main, init, const, var, interface, type, func
+  -o, --order strings   Order of elements when rewriting. You can omit elements, in which case they will 
+                        be placed in the default order after those you have specified.
+                        There are two specific cases: main and init - if they are not specified in the list, 
+                        then they are considered to be functions and will be ordered as such. If you do specify
+                        them, then they will be positioned in the source code in the place you have specified.
+                        - Allowed values are: main, init, const, var, interface, type, func
+                        - Default order is: const,var,interface,type,func
   -r, --reorder-types   Reordering types in addition to methods
   -v, --verbose         Verbose output
   -w, --write           Write result to (source) file instead of stdout
