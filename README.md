@@ -142,23 +142,20 @@ The released binaries are signed with GPG. If you want to verify that the releas
 ```bash
 
 ## Optional, you can get and trust the owner GPG key
-# this is the repo owner key:
-_KEY="F3702E3FAD8F76DC"
-# You can get it with this command:
-_KEY=$(curl -s https://api.github.com/users/metal3d/gpg_keys | \
-    awk -F'"' '/"key_id"/{print $4; exit}')
-echo ${_KEY}
+# import the key from github
+# install jq before (apt install -y jq, dnf install -y jq, ...)
+gpg --import <(curl -s https://api.github.com/users/metal3d/gpg_keys | jq -r '.[0].raw_key')
 
-# you can import the repository owner key from keyserver
-gpg --keyserver hkps://keys.openpgp.org/ --recv-keys ${_KEY}
+# or use keyserver
+_KEY="483493B2DD0845DA8F21A26DF3702E3FAD8F76DC"
+gpg --keyserver hkps://keys.openpgp.org/ --recv-keys ${_KEY~15}
 
-# optoinal, trust owner key
-_FPR=$(gpg -k --with-colons --fingerprint "${_KEY}" | awk -F: '/fpr/{print $10; exit}')
-echo ${_FPR}:6: | gpg --import-ownertrust
-unset _KEY _FPR
+## optional, trust owner key
+_KEY="483493B2DD0845DA8F21A26DF3702E3FAD8F76DC"
+echo ${_KEY}:6: | gpg --import-ownertrust
 
-## Verification
-# get the signature of the right binary
+## Binary signature verification
+# get the signature file (.asc) of the right binary
 _REL="goreorder-linux-amd64"
 _SIGNURL=https://github.com/metal3d/goreorder/releases/download/${_REL}.asc
 curl ${_SIGNURL} -o /tmp/goreorder.asc 
