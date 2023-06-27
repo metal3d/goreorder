@@ -14,15 +14,24 @@ import (
 
 const (
 	Const     Order = "const"
+	Init      Order = "init"
+	Main      Order = "main"
 	Var       Order = "var"
 	Interface Order = "interface"
 	Type      Order = "type"
 	Func      Order = "func"
 )
 
+// DefaultOrder is the default order of elements.
+//
+// Note, Init and Main are not in the list. If they are present, the init and main functions
+// will be moved.
 var DefaultOrder = []Order{Const, Var, Interface, Type, Func}
 
+// Order is the type of order, it's an alias of string.
 type Order = string
+
+// ReorderConfig is the configuration for the reorder function.
 type ReorderConfig struct {
 	Filename       string
 	FormatCommand  string
@@ -81,13 +90,48 @@ func processConst(
 	return source
 }
 
+func processExtractedFunction(
+	info *ParsedInfo,
+	functionNames, originalContent, source []string,
+	removedLines, lineNumberWhereInject *int,
+	sign string,
+	funcname string,
+) []string {
+	for _, name := range functionNames {
+
+		if funcname != name {
+			continue
+		}
+
+		sourceCode := info.Functions[name]
+		if *removedLines == 0 {
+			*lineNumberWhereInject = info.Functions[name].OpeningLine
+		}
+		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
+			originalContent[ln] = "// -- " + sign
+		}
+		source = append(source, "\n"+sourceCode.SourceCode)
+		*removedLines += len(info.Functions)
+	}
+	return source
+}
+
 func processFunctions(
 	info *ParsedInfo,
 	functionNames, originalContent, source []string,
 	removedLines, lineNumberWhereInject *int,
 	sign string,
+	extactinit, extactmain bool,
 ) []string {
 	for _, name := range functionNames {
+
+		if name == "init" && extactinit {
+			continue
+		}
+		if name == "main" && extactmain {
+			continue
+		}
+
 		sourceCode := info.Functions[name]
 		if *removedLines == 0 {
 			*lineNumberWhereInject = info.Functions[name].OpeningLine
@@ -285,6 +329,17 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 	lineNumberWhereInject := 0
 	removedLines := 0
 
+	extactinit := false
+	extractmain := false
+	for _, order := range opt.DefOrder {
+		if order == Init {
+			extactinit = true
+		}
+		if order == Main {
+			extractmain = true
+		}
+	}
+
 	for _, order := range opt.DefOrder {
 		switch order {
 		case Const:
@@ -306,7 +361,6 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 				&removedLines, &lineNumberWhereInject,
 				sign,
 			)
-
 		case Type:
 			source = processTypes(
 				info,
@@ -320,6 +374,23 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 				functionNames, originalContent, source,
 				&removedLines, &lineNumberWhereInject,
 				sign,
+				extactinit, extractmain,
+			)
+		case Init:
+			source = processExtractedFunction(
+				info,
+				functionNames, originalContent, source,
+				&removedLines, &lineNumberWhereInject,
+				sign,
+				"init",
+			)
+		case Main:
+			source = processExtractedFunction(
+				info,
+				functionNames, originalContent, source,
+				&removedLines, &lineNumberWhereInject,
+				sign,
+				"main",
 			)
 		}
 	}

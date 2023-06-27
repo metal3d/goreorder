@@ -1,4 +1,4 @@
-#!bin/sh
+#!/bin/sh
 
 # config
 GIT_REPOSITORY=https://github.com/metal3d

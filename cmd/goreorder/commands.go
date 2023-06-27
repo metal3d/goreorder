@@ -64,7 +64,7 @@ func buildMainCommand() *cobra.Command {
 		Long:    fmt.Sprintf(usage, filepath.Base(os.Args[0])),
 		Version: version,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			return initializeViper(cmd)
+			return initializeViper(cmd, args...)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("You need to specify a command or an option")
@@ -110,10 +110,12 @@ func buildReorderCommand(config *ReorderConfig) *cobra.Command {
 			}
 
 			// validate order flags
+			validOrder := config.DefOrder
+			validOrder = append(validOrder, []string{"main", "init"}...)
 			if len(config.DefOrder) > 0 {
 				for _, v := range config.DefOrder {
 					found := false
-					for _, w := range ordering.DefaultOrder {
+					for _, w := range validOrder {
 						if v == w {
 							found = true
 							break
@@ -162,7 +164,12 @@ func buildReorderCommand(config *ReorderConfig) *cobra.Command {
 	reoderCommand.Flags().StringSliceVarP(
 		&config.DefOrder,
 		"order", "o", config.DefOrder,
-		"Order of the elements. Omitting elements is allowed, the needed elements will be appended")
+		`Order of the elements. You can omit some elements, they will be added at the end.
+There are 2 special values that are not part of the default order: "init" and "main". If
+you specify "init" or "main" in the order, they will be added placed where you put them
+and so they will not be included in "func". This to allow to have the init() function
+and the main() function at the top of the file. Or whatever you want.
+Allowed values are: main, init, `+strings.Join(ordering.DefaultOrder, ", "))
 	return reoderCommand
 
 }

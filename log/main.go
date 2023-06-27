@@ -12,6 +12,11 @@ var (
 	logger *l.Logger
 )
 
+func init() {
+	// set the log output to stderr
+	logger = l.New(os.Stderr, "", l.LstdFlags)
+}
+
 func GetLogger() *l.Logger {
 	return logger
 }
@@ -25,9 +30,4 @@ func SetVerbose(v bool) {
 		writer, _ := os.OpenFile(os.DevNull, os.O_WRONLY, 0666)
 		logger.SetOutput(writer)
 	}
-}
-
-func init() {
-	// set the log output to stderr
-	logger = l.New(os.Stderr, "", l.LstdFlags)
 }
