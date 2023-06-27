@@ -36,6 +36,13 @@ var (
 	defaultOutpout io.Writer = os.Stdout
 )
 
+func main() {
+	if err := buildMainCommand().Execute(); err != nil {
+		fmt.Println(fmt.Errorf("%v", err))
+		os.Exit(1)
+	}
+}
+
 type ReorderConfig struct {
 	FormatToolName string   `yaml:"format"`
 	Write          bool     `yaml:"write"`
@@ -43,13 +50,6 @@ type ReorderConfig struct {
 	ReorderTypes   bool     `yaml:"reorder-types"`
 	MakeDiff       bool     `yaml:"diff"`
 	DefOrder       []string `yaml:"order"`
-}
-
-func main() {
-	if err := buildMainCommand().Execute(); err != nil {
-		fmt.Println(fmt.Errorf("%v", err))
-		os.Exit(1)
-	}
 }
 
 func processFile(fileOrDirectoryName string, input []byte, config *ReorderConfig) {

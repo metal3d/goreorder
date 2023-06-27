@@ -90,19 +90,16 @@ func processConst(
 	return source
 }
 
-func processFunctions(
+func processExtractedFunction(
 	info *ParsedInfo,
 	functionNames, originalContent, source []string,
 	removedLines, lineNumberWhereInject *int,
 	sign string,
-	extactinit, extactmain bool,
+	funcname string,
 ) []string {
 	for _, name := range functionNames {
 
-		if name == "init" && extactinit {
-			continue
-		}
-		if name == "main" && extactmain {
+		if funcname != name {
 			continue
 		}
 
@@ -119,16 +116,19 @@ func processFunctions(
 	return source
 }
 
-func processExtractedFunction(
+func processFunctions(
 	info *ParsedInfo,
 	functionNames, originalContent, source []string,
 	removedLines, lineNumberWhereInject *int,
 	sign string,
-	funcname string,
+	extactinit, extactmain bool,
 ) []string {
 	for _, name := range functionNames {
 
-		if funcname != name {
+		if name == "init" && extactinit {
+			continue
+		}
+		if name == "main" && extactmain {
 			continue
 		}
 
