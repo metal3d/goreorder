@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 )
 
@@ -609,4 +610,119 @@ type Foo interface {
 	if content != expected {
 		t.Errorf("Expected:\n%s\nGot:\n%s\n", expected, content)
 	}
+}
+
+func TestExtractFunctions(t *testing.T) {
+	const source = `package main
+const A = 1
+var B = 2
+
+func A() {
+    fmt.Println("A")
+}
+func main() {
+    fmt.Println("main")
+}
+func Bar() {
+    fmt.Println("Bar")
+}
+func Zoo() {
+    fmt.Println("Zoo")
+}
+func init(){
+
+}
+type Foo struct {
+    A int
+}
+`
+
+	funcReg := regexp.MustCompile(`func\s+(.*)\s*\(`)
+	content, err := ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: false,
+		Src:            []byte(source),
+		Diff:           false,
+	})
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	// By default, init and main should be last
+	funcs := funcReg.FindAllStringSubmatch(content, -1)
+	expectedOrder := []string{"A", "Bar", "Zoo", "init", "main"}
+	for i, f := range funcs {
+		if f[1] != expectedOrder[i] {
+			t.Errorf("Expected %s, got %s", expectedOrder[i], f[1])
+		}
+	}
+
+	content, err = ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: false,
+		Src:            []byte(source),
+		Diff:           false,
+		DefOrder:       []Order{Const, Var, Main},
+	})
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Main shuold be right ager vars, and init should be last
+	funcs = funcReg.FindAllStringSubmatch(content, -1)
+	expectedOrder = []string{"main", "A", "Bar", "Zoo", "init"}
+	for i, f := range funcs {
+		if f[1] != expectedOrder[i] {
+			t.Errorf("Expected %s, got %s", expectedOrder[i], f[1])
+		}
+	}
+
+	content, err = ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: false,
+		Src:            []byte(source),
+		Diff:           false,
+		DefOrder:       []Order{Const, Var, Init},
+	})
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Init should right after vars, and main should be last
+	funcs = funcReg.FindAllStringSubmatch(content, -1)
+	expectedOrder = []string{"init", "A", "Bar", "Zoo", "main"}
+	for i, f := range funcs {
+		if f[1] != expectedOrder[i] {
+			t.Errorf("Expected %s, got %s", expectedOrder[i], f[1])
+		}
+	}
+
+	content, err = ReorderSource(ReorderConfig{
+		Filename:       "foo.go",
+		FormatCommand:  "gofmt",
+		ReorderStructs: false,
+		Src:            []byte(source),
+		Diff:           false,
+		DefOrder:       []Order{Const, Var, Init, Main},
+	})
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Main and Init should be right after vars, and the rest should be like in default
+	funcs = funcReg.FindAllStringSubmatch(content, -1)
+	expectedOrder = []string{"init", "main", "A", "Bar", "Zoo"}
+	for i, f := range funcs {
+		if f[1] != expectedOrder[i] {
+			t.Errorf("Expected %s, got %s", expectedOrder[i], f[1])
+		}
+	}
+
 }
