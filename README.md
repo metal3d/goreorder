@@ -59,8 +59,8 @@ Available Commands:
   reorder      Reorder vars, consts, stucts/types/interaces, methods/functions and constructors in a Go source file.
 
 Flags:
-  -h, --help      Show help
-  -V, --version   Show version
+  -h, --help      help for goreorder
+  -v, --version   version for goreorder
 
 Use "goreorder [command] --help" for more information about a command.
 ```
@@ -77,7 +77,12 @@ Flags:
   -d, --diff            Make a diff instead of rewriting the file
   -f, --format string   Format tool to use (gofmt or goimports) (default "gofmt")
   -h, --help            help for reorder
-  -o, --order strings   Order of the elements. Omitting elements is allowed, the needed elements will be appended
+  -o, --order strings   Order of the elements. You can omit some elements, they will be added at the end.
+                        There are 2 special values that are not part of the default order: "init" and "main". If
+                        you specify "init" or "main" in the order, they will be added placed where you put them
+                        and so they will not be included in "func". This to allow to have the init() function
+                        and the main() function at the top of the file. Or whatever you want.
+                        Allowed values are: main, init, const, var, interface, type, func
   -r, --reorder-types   Reordering types in addition to methods
   -v, --verbose         Verbose output
   -w, --write           Write result to (source) file instead of stdout
@@ -86,6 +91,30 @@ Flags:
 You can create a `.goreorder` file containing configuration at the root of your project. Use the `goreorder print-config` command (you can redirect the output to the `.goreorder` file).
 
 > Warning, `print-config` shows the current configuration. If the file doesn't exist, so the default values are displayed. If it exists, so the current values are displayed. To reset the file, remove it and rerun the `print-config` subcommand.
+
+# Specific cases for `main()` and `init()` functions
+
+By default, `main()` and `init()` functions are part of the functions. So they are sorted with the others functions. If you don't want this behavior, you can specify where to place them using the `--order` argument or using the `.goreorder` configuration file.
+
+For example, in command line:
+```bash
+goreorder reorder --order const,var,init,main ./
+```
+
+Or in configuration:
+
+```yaml
+format: gofmt
+write: true
+verbose: true
+reorder-types: true
+diff: false
+order:
+- const
+- var
+- init
+- main
+```
 
 # Avoid destruction with `--diff`
 
