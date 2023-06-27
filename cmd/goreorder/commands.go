@@ -110,10 +110,12 @@ func buildReorderCommand(config *ReorderConfig) *cobra.Command {
 			}
 
 			// validate order flags
+			validOrder := config.DefOrder
+			validOrder = append(validOrder, []string{"main", "init"}...)
 			if len(config.DefOrder) > 0 {
 				for _, v := range config.DefOrder {
 					found := false
-					for _, w := range ordering.DefaultOrder {
+					for _, w := range validOrder {
 						if v == w {
 							found = true
 							break
