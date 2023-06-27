@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,7 +15,20 @@ import (
 	"github.com/spf13/viper"
 )
 
+var (
+	version                     = "master"  // changed at compilation time
+	defaultOutpout    io.Writer = os.Stdout // default output is stdout
+	defaultErrOutpout io.Writer = os.Stderr // default error output is stderr
+)
+
 func buildCompletionCommand() *cobra.Command {
+	var completionExamples = []string{
+		"$ %[1]s completion bash",
+		"$ %[1]s completion bash -no-documentation",
+		"$ %[1]s completion zsh",
+		"$ %[1]s completion fish",
+		"$ %[1]s completion powershell",
+	}
 	noDocumentation := false
 	bashv1Completion := false
 	completionCmd := &cobra.Command{
@@ -56,6 +70,14 @@ func buildCompletionCommand() *cobra.Command {
 }
 
 func buildMainCommand() *cobra.Command {
+	const usage = `%[1]s reorders the types, methods... in a Go
+source file. By default, it will print the result to stdout. To allow %[1]s
+to write to the file, use the -write flag.`
+	var examples = []string{
+		"$ %[1]s reorder --write --reorder-types --format gofmt file.go",
+		"$ %[1]s reorder --diff ./mypackage",
+		"$ cat file.go | %[1]s reorder",
+	}
 
 	cmd := cobra.Command{
 		Use:     "goreorder [flags] [file.go|directory|stdin]",
@@ -70,6 +92,10 @@ func buildMainCommand() *cobra.Command {
 			return fmt.Errorf("You need to specify a command or an option")
 		},
 	}
+
+	// my god this is so cool...
+	cmd.SetOut(defaultOutpout)
+	cmd.SetErr(defaultErrOutpout)
 
 	config := &ReorderConfig{
 		FormatToolName: "gofmt",
@@ -136,8 +162,7 @@ func buildReorderCommand(config *ReorderConfig) *cobra.Command {
 				return fmt.Errorf("The executable '" + config.FormatToolName + "' does not exist")
 			}
 			logger.SetVerbose(config.Verbose)
-			run(config, args...)
-			return nil
+			return reorder(config, args...)
 		},
 	}
 

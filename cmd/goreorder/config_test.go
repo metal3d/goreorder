@@ -10,6 +10,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func init() {
+	defaultOutpout = bytes.NewBuffer([]byte{})
+	defaultErrOutpout = bytes.NewBuffer([]byte{})
+}
+
 func TestNoConfigFile(t *testing.T) {
 	defaultOutpout = bytes.NewBuffer([]byte{})
 	printConfigFile(&ReorderConfig{

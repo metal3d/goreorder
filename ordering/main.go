@@ -12,34 +12,11 @@ import (
 	"strings"
 )
 
-const (
-	Const     Order = "const"
-	Init      Order = "init"
-	Main      Order = "main"
-	Var       Order = "var"
-	Interface Order = "interface"
-	Type      Order = "type"
-	Func      Order = "func"
-)
-
 // DefaultOrder is the default order of elements.
 //
 // Note, Init and Main are not in the list. If they are present, the init and main functions
 // will be moved.
 var DefaultOrder = []Order{Const, Var, Interface, Type, Func}
-
-// Order is the type of order, it's an alias of string.
-type Order = string
-
-// ReorderConfig is the configuration for the reorder function.
-type ReorderConfig struct {
-	Filename       string
-	FormatCommand  string
-	ReorderStructs bool
-	Diff           bool
-	Src            interface{}
-	DefOrder       []Order
-}
 
 func formatWithCommand(content []byte, output string, opt ReorderConfig) (newcontent []byte, err error) {
 	// we use the format command given by the user
