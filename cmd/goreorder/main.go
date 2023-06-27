@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -17,7 +19,7 @@ var (
 
 func main() {
 	if err := buildMainCommand().Execute(); err != nil {
-		fmt.Println(fmt.Errorf("%w", err))
+		io.WriteString(defaultErrOutpout, fmt.Sprintf("%s\n", err))
 		os.Exit(1)
 	}
 }
@@ -30,6 +32,37 @@ type ReorderConfig struct {
 	ReorderTypes   bool     `yaml:"reorder-types"`
 	MakeDiff       bool     `yaml:"diff"`
 	DefOrder       []string `yaml:"order"`
+}
+
+func reorder(config *ReorderConfig, args ...string) error {
+
+	// is there something in stdin?
+	filename := ""
+	var input []byte
+	var err error
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		// read from stdin
+		input, err = ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("Error while reading stdin: %w", err)
+		}
+		filename = "stdin.go"
+		config.Write = false
+		log.Println("Processing stdin, write is set to false")
+	} else {
+		// read from file or directory
+		filename = args[0]
+		if filename == "" {
+			return fmt.Errorf("Filename is empty")
+		}
+		_, err := os.Stat(filename)
+		if err != nil {
+			return fmt.Errorf("Error while getting file stat: %w", err)
+		}
+	}
+
+	return processFile(filename, input, config)
 }
 
 func processFile(fileOrDirectoryName string, input []byte, config *ReorderConfig) error {
@@ -47,7 +80,7 @@ func processFile(fileOrDirectoryName string, input []byte, config *ReorderConfig
 			Src:            input,
 		})
 		if err != nil {
-			return fmt.Errorf("Error while reordering source: %v", err)
+			return fmt.Errorf("Error while reordering source: %w", err)
 		}
 		fmt.Print(string(content))
 		return nil
@@ -55,7 +88,7 @@ func processFile(fileOrDirectoryName string, input []byte, config *ReorderConfig
 
 	stat, err := os.Stat(fileOrDirectoryName)
 	if err != nil {
-		return fmt.Errorf("Error while getting file stat: %v", err)
+		return fmt.Errorf("Error while getting file stat: %w", err)
 	}
 	if stat.IsDir() {
 		// skip vendor directory
@@ -66,7 +99,7 @@ func processFile(fileOrDirectoryName string, input []byte, config *ReorderConfig
 		log.Println("Processing directory: " + fileOrDirectoryName)
 		return filepath.Walk(fileOrDirectoryName, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				return fmt.Errorf("Error while walking directory: %v", err)
+				return fmt.Errorf("Error while walking directory: %w", err)
 			}
 			if strings.HasSuffix(path, ".go") {
 				processFile(path, nil, config)
@@ -85,46 +118,16 @@ func processFile(fileOrDirectoryName string, input []byte, config *ReorderConfig
 		Src:            input,
 	})
 	if err != nil {
-		return fmt.Errorf("Error while reordering file: %v", err)
+		return fmt.Errorf("Error while reordering file: %w", err)
 	}
 	if config.Write {
 		err = ioutil.WriteFile(fileOrDirectoryName, []byte(output), 0644)
 		if err != nil {
-			return fmt.Errorf("Error while writing to file: %v", err)
+			return fmt.Errorf("Error while writing to file: %w", err)
 		}
 	} else {
-		fmt.Println(output)
+		//fmt.Println(output)
+		io.Copy(defaultOutpout, bytes.NewBufferString(output))
 	}
 	return nil
-}
-
-func reorder(config *ReorderConfig, args ...string) error {
-
-	// is there something in stdin?
-	filename := ""
-	var input []byte
-	var err error
-	stat, _ := os.Stdin.Stat()
-	if (stat.Mode() & os.ModeCharDevice) == 0 {
-		// read from stdin
-		input, err = ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			return fmt.Errorf("Error while reading stdin: %v", err)
-		}
-		filename = "stdin.go"
-		config.Write = false
-		log.Println("Processing stdin, write is set to false")
-	} else {
-		// read from file or directory
-		filename = args[0]
-		if filename == "" {
-			return fmt.Errorf("Filename is empty")
-		}
-		_, err := os.Stat(filename)
-		if err != nil {
-			return fmt.Errorf("Error while getting file stat: %v", err)
-		}
-	}
-
-	return processFile(filename, input, config)
 }

@@ -8,6 +8,11 @@ import (
 	"testing"
 )
 
+func init() {
+	defaultOutpout = bytes.NewBuffer([]byte{})
+	defaultErrOutpout = bytes.NewBuffer([]byte{})
+}
+
 func TestBuildCommand(t *testing.T) {
 	cmd := buildMainCommand()
 	if cmd == nil {
@@ -138,9 +143,6 @@ func TestNoArgs(t *testing.T) {
 }
 
 func TestCompletionCommands(t *testing.T) {
-
-	defaultOutpout = &bytes.Buffer{}
-
 	for _, shell := range []string{"bash", "zsh", "fish", "powershell"} {
 		cmd := buildMainCommand()
 		cmd.SetArgs([]string{"completion", shell})
