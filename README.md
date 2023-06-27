@@ -15,7 +15,7 @@ There are several possibilities:
 
 - If you have "go" on your machine, simply install using (you can replace "latest" by a known tag):
     ```bash
-    go install github.com/metal3d/goreorder/cmd/goreorder@latest`
+    go install github.com/metal3d/goreorder/cmd/goreorder@latest
     ```
 - Visit the [release page](https://github.com/metal3d/goreorder/releases) to download the desired version (to place inside your `$PATH`)
 - Use the installer:
