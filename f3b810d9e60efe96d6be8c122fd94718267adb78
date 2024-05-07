@@ -1,0 +1,1 @@
+{"go-coverage-action-fmt":1,"coverage_pct":87.02928870292888,"pkg_stats":{"github.com/metal3d/goreorder/cmd/goreorder":[75.52447552447552],"github.com/metal3d/goreorder/log":[83.33333333333334],"github.com/metal3d/goreorder/ordering":[92.09726443768997]},"skipped_count":0}
