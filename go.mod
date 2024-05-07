@@ -1,6 +1,6 @@
 module github.com/metal3d/goreorder
 
-go 1.22
+go 1.21
 
 require (
 	github.com/spf13/cobra v1.8.0
