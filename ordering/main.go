@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"go/format"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"sort"
@@ -21,7 +20,7 @@ var DefaultOrder = []Order{Const, Var, Interface, Type, Func}
 func formatWithCommand(content []byte, output string, opt ReorderConfig) (newcontent []byte, err error) {
 	// we use the format command given by the user
 	// on a temporary file we need to create and remove
-	tmpfile, err := ioutil.TempFile("", "")
+	tmpfile, err := os.CreateTemp("", "")
 	if err != nil {
 		return content, errors.New("Failed to create temp file: " + err.Error())
 	}
@@ -39,7 +38,7 @@ func formatWithCommand(content []byte, output string, opt ReorderConfig) (newcon
 		return content, err
 	}
 	// read the temporary file
-	newcontent, err = ioutil.ReadFile(tmpfile.Name())
+	newcontent, err = os.ReadFile(tmpfile.Name())
 	if err != nil {
 		return content, errors.New("Read Temporary File error: " + err.Error())
 	}
@@ -239,7 +238,7 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 	var content []byte
 	var err error
 	if opt.Src == nil || len(opt.Src.([]byte)) == 0 {
-		content, err = ioutil.ReadFile(opt.Filename)
+		content, err = os.ReadFile(opt.Filename)
 		if err != nil {
 			return "", err
 		}
@@ -386,7 +385,8 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 	output := strings.Join(originalContent, "\n")
 
 	// write in a temporary file and use "gofmt" to format it
-	newcontent := []byte(output)
+	//newcontent := []byte(output)
+	var newcontent []byte
 	switch opt.FormatCommand {
 	case "gofmt":
 		// format the temporary file
@@ -395,7 +395,8 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 			return string(content), errors.New("Failed to format source: " + err.Error())
 		}
 	default:
-		if newcontent, err = formatWithCommand(content, output, opt); err != nil {
+		newcontent, err = formatWithCommand(content, output, opt)
+		if err != nil {
 			return string(content), errors.New("Failed to format source: " + err.Error())
 		}
 	}

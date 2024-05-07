@@ -43,10 +43,10 @@ type ParsedInfo struct {
 
 // ReorderConfig is the configuration for the reorder function.
 type ReorderConfig struct {
+	Src            interface{}
 	Filename       string
 	FormatCommand  string
+	DefOrder       []Order
 	ReorderStructs bool
 	Diff           bool
-	Src            interface{}
-	DefOrder       []Order
 }

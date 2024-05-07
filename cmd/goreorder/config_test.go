@@ -2,12 +2,12 @@ package main
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/metal3d/goreorder/ordering"
 	"gopkg.in/yaml.v3"
+
+	"github.com/metal3d/goreorder/ordering"
 )
 
 func init() {
@@ -79,13 +79,13 @@ order:
 		t.Fatal(err)
 	}
 	defer os.Chdir(currentDir)
-	tmpDir, err := ioutil.TempDir("", "goreorder-test")
+	tmpDir, err := os.MkdirTemp("", "goreorder-test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
 	os.Chdir(tmpDir)
-	err = ioutil.WriteFile(".goreorder", []byte(yamlFile), 0644)
+	err = os.WriteFile(".goreorder", []byte(yamlFile), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}

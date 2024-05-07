@@ -9,10 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	logger "github.com/metal3d/goreorder/log"
-	"github.com/metal3d/goreorder/ordering"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	logger "github.com/metal3d/goreorder/log"
+	"github.com/metal3d/goreorder/ordering"
 )
 
 var (
@@ -89,7 +90,7 @@ to write to the file, use the -write flag.`
 			return initializeViper(cmd, args...)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("You need to specify a command or an option")
+			return fmt.Errorf("you need to specify a command or an option")
 		},
 	}
 
@@ -129,10 +130,9 @@ func buildReorderCommand(config *ReorderConfig) *cobra.Command {
 		Use:   "reorder [flags] [file.go|directory|stdin]",
 		Short: "Reorder vars, consts, stucts/types/interaces, methods/functions and constructors in a Go source file.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			stat, _ := os.Stdin.Stat()
 			if len(args) == 0 && (stat.Mode()&os.ModeCharDevice) != 0 {
-				return errors.New("You should provide a file or a directory or stream content to stdin.")
+				return errors.New("you should provide a file or a directory or stream content to stdin")
 			}
 
 			// validate order flags
@@ -148,13 +148,13 @@ func buildReorderCommand(config *ReorderConfig) *cobra.Command {
 						}
 					}
 					if !found {
-						return fmt.Errorf("Invalid order name %v, valid order name are %v", v, ordering.DefaultOrder)
+						return fmt.Errorf("invalid order name %v, valid order name are %v", v, ordering.DefaultOrder)
 					}
 				}
 			}
 			// only allow gofmt or goimports
 			if config.FormatToolName != "gofmt" && config.FormatToolName != "goimports" {
-				return fmt.Errorf("Only gofmt or goimports are allowed")
+				return fmt.Errorf("only gofmt or goimports are allowed")
 			}
 
 			// check if the executable exists

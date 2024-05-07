@@ -46,13 +46,12 @@ func bindFlags(cmd *cobra.Command, v *viper.Viper) {
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		name := f.Name
 		if !f.Changed && v.IsSet(name) {
-			val := v.Get(name)
 			// ensure that the value is with the correct type
 			switch f.Value.Type() {
 			case "stringSlice":
 				cmd.Flags().Lookup(name).Value.Set(strings.Join(v.GetStringSlice(name), ","))
 			default:
-				val = v.GetString(name)
+				val := v.GetString(name)
 				cmd.Flags().Set(name, fmt.Sprintf("%v", val))
 			}
 		}

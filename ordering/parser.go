@@ -5,7 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io/ioutil"
+	"os"
 	"strings"
 )
 
@@ -33,7 +33,7 @@ func Parse(filename string, src interface{}) (*ParsedInfo, error) {
 
 	if src == nil {
 		// error should never happen as Parse() worked
-		sourceCode, err = ioutil.ReadFile(filename)
+		sourceCode, err = os.ReadFile(filename)
 		if err != nil {
 			return nil, err
 		}
@@ -133,9 +133,9 @@ func findConstructors(d *ast.FuncDecl, fset *token.FileSet, sourceLines []string
 		}
 
 		// it the method is already in the constructor map, skip it
-		if _, ok := constructors[returnType]; ok {
-			continue
-		}
+		//if _, ok := constructors[returnType]; ok {
+		//	continue
+		//}
 
 		method := &GoType{
 			Name:        d.Name.Name,

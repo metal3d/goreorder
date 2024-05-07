@@ -2,7 +2,6 @@ package ordering
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,7 +16,7 @@ func doDiff(content, newcontent []byte, filename string) (string, error) {
 	// "tmp/a/" and "tmp/b/" with "a/" and "b/".
 
 	// create a and b directories in temporary directory
-	tmpDir, err := ioutil.TempDir("", "")
+	tmpDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		return string(content), errors.New("Failed to create temp directory: " + err.Error())
 	}
@@ -34,11 +33,11 @@ func doDiff(content, newcontent []byte, filename string) (string, error) {
 	os.MkdirAll(dirB, 0755)
 
 	fba := filepath.Join(dirA, filebase)
-	if err := ioutil.WriteFile(fba, content, 0644); err != nil {
+	if err := os.WriteFile(fba, content, 0644); err != nil {
 		return string(content), errors.New("Failed to write to temporary file: " + err.Error())
 	}
 	fbb := filepath.Join(dirB, filebase)
-	if err := ioutil.WriteFile(fbb, newcontent, 0644); err != nil {
+	if err := os.WriteFile(fbb, newcontent, 0644); err != nil {
 		return string(content), errors.New("Failed to write to temporary file: " + err.Error())
 	}
 	// run diff -Naur a b
