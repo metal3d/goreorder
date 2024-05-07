@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -45,7 +44,7 @@ func main() {}`)
 	cmd := buildMainCommand()
 	cmd.SetArgs([]string{"reorder", "--write", "./main.go"})
 	if err := cmd.Execute(); err != nil {
-		t.Error("Command error", err)
+		t.Error("command error", err)
 	}
 
 	// check file
@@ -68,7 +67,7 @@ func TestWithDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.Chdir(currentDir)
-	tmpDir, err := ioutil.TempDir("", "goreorder-test")
+	tmpDir, err := os.MkdirTemp("", "goreorder-test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +117,7 @@ func TestHelp(t *testing.T) {
 	cmd := buildMainCommand()
 	cmd.SetArgs([]string{"--help"})
 	if err := cmd.Execute(); err != nil {
-		t.Error("Command error", err)
+		t.Error("command error", err)
 	}
 
 }
@@ -128,7 +127,7 @@ func TestVersion(t *testing.T) {
 	cmd := buildMainCommand()
 	cmd.SetArgs([]string{"--version"})
 	if err := cmd.Execute(); err != nil {
-		t.Error("Version Command error", err)
+		t.Error("version Command error", err)
 	}
 
 }
@@ -138,7 +137,7 @@ func TestNoArgs(t *testing.T) {
 	// no arguments
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err == nil {
-		t.Error("An error should occur with no argument", err)
+		t.Error("an error should occur with no argument", err)
 	}
 }
 
@@ -147,7 +146,7 @@ func TestCompletionCommands(t *testing.T) {
 		cmd := buildMainCommand()
 		cmd.SetArgs([]string{"completion", shell})
 		if err := cmd.Execute(); err != nil {
-			t.Error("Command error", err)
+			t.Error("command error", err)
 		}
 	}
 
@@ -155,20 +154,20 @@ func TestCompletionCommands(t *testing.T) {
 	cmd := buildMainCommand()
 	cmd.SetArgs([]string{"completion", "bash", "--bashv1"})
 	if err := cmd.Execute(); err != nil {
-		t.Error("Command error", err)
+		t.Error("command error", err)
 	}
 
 	// with no shell
 	cmd = buildMainCommand()
 	cmd.SetArgs([]string{"completion"})
 	if err := cmd.Execute(); err == nil {
-		t.Error("An error should occur with no shell argument", err)
+		t.Error("an error should occur with no shell argument", err)
 	}
 
 	// and with a bad shell
 	cmd = buildMainCommand()
 	cmd.SetArgs([]string{"completion", "badshell"})
 	if err := cmd.Execute(); err == nil {
-		t.Error("An error should occur with a bad shell argument", err)
+		t.Error("an error should occur with a bad shell argument", err)
 	}
 }
