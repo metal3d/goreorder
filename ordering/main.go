@@ -17,7 +17,9 @@ import (
 // will be moved.
 var DefaultOrder = []Order{Const, Var, Interface, Type, Func}
 
-func formatWithCommand(content []byte, output string, opt ReorderConfig) (newcontent []byte, err error) {
+const reorderSignature = "// -- "
+
+func formatWithCommand(content []byte, output []byte, opt ReorderConfig) (newcontent []byte, err error) {
 	// we use the format command given by the user
 	// on a temporary file we need to create and remove
 	tmpfile, err := os.CreateTemp("", "")
@@ -27,7 +29,7 @@ func formatWithCommand(content []byte, output string, opt ReorderConfig) (newcon
 	defer os.Remove(tmpfile.Name())
 
 	// write the temporary file
-	if _, err := tmpfile.Write([]byte(output)); err != nil {
+	if _, err := tmpfile.Write(output); err != nil {
 		return content, errors.New("Failed to write temp file: " + err.Error())
 	}
 	tmpfile.Close()
@@ -58,7 +60,7 @@ func processConst(
 			*lineNumberWhereInject = info.Constants[name].OpeningLine
 		}
 		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
-			originalContent[ln] = "// -- " + sign
+			originalContent[ln] = reorderSignature + sign
 		}
 		source = append(source, sourceCode.SourceCode)
 		*removedLines += len(info.Constants)
@@ -84,7 +86,7 @@ func processExtractedFunction(
 			*lineNumberWhereInject = info.Functions[name].OpeningLine
 		}
 		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
-			originalContent[ln] = "// -- " + sign
+			originalContent[ln] = reorderSignature + sign
 		}
 		source = append(source, "\n"+sourceCode.SourceCode)
 		*removedLines += len(info.Functions)
@@ -113,7 +115,7 @@ func processFunctions(
 			*lineNumberWhereInject = info.Functions[name].OpeningLine
 		}
 		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
-			originalContent[ln] = "// -- " + sign
+			originalContent[ln] = reorderSignature + sign
 		}
 		source = append(source, "\n"+sourceCode.SourceCode)
 		*removedLines += len(info.Functions)
@@ -134,7 +136,7 @@ func processInterfaces(
 			*lineNumberWhereInject = info.Interfaces[name].OpeningLine
 		}
 		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
-			originalContent[ln] = "// -- " + sign
+			originalContent[ln] = reorderSignature + sign
 		}
 		source = append(source, sourceCode.SourceCode)
 		*removedLines += len(info.Interfaces)
@@ -155,7 +157,7 @@ func processTypes(
 		}
 		// replace the definitions by "// -- line to remove
 		for ln := info.Types[typename].OpeningLine - 1; ln < info.Types[typename].ClosingLine; ln++ {
-			originalContent[ln] = "// -- " + sign
+			originalContent[ln] = reorderSignature + sign
 		}
 		*removedLines += info.Types[typename].ClosingLine - info.Types[typename].OpeningLine
 		// add the struct definition to "source"
@@ -164,7 +166,7 @@ func processTypes(
 		// same for constructors
 		for _, constructor := range info.Constructors[typename] {
 			for ln := constructor.OpeningLine - 1; ln < constructor.ClosingLine; ln++ {
-				originalContent[ln] = "// -- " + sign
+				originalContent[ln] = reorderSignature + sign
 			}
 			// add the constructor to "source"
 			source = append(source, "\n"+constructor.SourceCode)
@@ -174,7 +176,7 @@ func processTypes(
 		// same for methods
 		for _, method := range info.Methods[typename] {
 			for ln := method.OpeningLine - 1; ln < method.ClosingLine; ln++ {
-				originalContent[ln] = "// -- " + sign
+				originalContent[ln] = reorderSignature + sign
 			}
 			// add the method to "source"
 			source = append(source, "\n"+method.SourceCode)
@@ -196,7 +198,7 @@ func processVars(
 			*lineNumberWhereInject = info.Variables[name].OpeningLine
 		}
 		for ln := sourceCode.OpeningLine - 1; ln < sourceCode.ClosingLine; ln++ {
-			originalContent[ln] = "// -- " + sign
+			originalContent[ln] = reorderSignature + sign
 		}
 		source = append(source, sourceCode.SourceCode)
 		*removedLines += len(info.Variables)
@@ -218,22 +220,7 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 	if opt.DefOrder == nil {
 		opt.DefOrder = DefaultOrder
 	}
-	if len(opt.DefOrder) != len(DefaultOrder) {
-		// wich one is missing?
-		for _, order := range DefaultOrder {
-			found := false
-			for _, defOrder := range opt.DefOrder {
-				if order == defOrder {
-					found = true
-					break
-				}
-			}
-			if !found {
-				// add it to the end
-				opt.DefOrder = append(opt.DefOrder, order)
-			}
-		}
-	}
+	findMissingOrderElement(&opt)
 
 	var content []byte
 	var err error
@@ -258,33 +245,18 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 
 	// sort methods by name
 	for _, method := range info.Methods {
-		sort.Slice(method, func(i, j int) bool {
-			return method[i].Name < method[j].Name
-		})
+		sortGoTypes(method)
 	}
 
 	for _, constructor := range info.Constructors {
-		sort.Slice(constructor, func(i, j int) bool {
-			return constructor[i].Name < constructor[j].Name
-		})
+		sortGoTypes(constructor)
 	}
 
-	functionNames := make([]string, 0, len(info.Functions))
-	for functionName := range info.Functions {
-		functionNames = append(functionNames, functionName)
-	}
+	functionNames := getKeys(info.Functions)
+	varNames := getKeys(info.Variables)
+	constNames := getKeys(info.Constants)
 	sort.Strings(functionNames)
-
-	varNames := make([]string, 0, len(info.Variables))
-	for varName := range info.Variables {
-		varNames = append(varNames, varName)
-	}
 	sort.Strings(varNames)
-
-	constNames := make([]string, 0, len(info.Constants))
-	for constName := range info.Constants {
-		constNames = append(constNames, constName)
-	}
 	sort.Strings(constNames)
 
 	if opt.ReorderStructs {
@@ -375,34 +347,91 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 	originalContent = append(originalContent[:lineNumberWhereInject], append(source, originalContent[lineNumberWhereInject:]...)...)
 
 	// remove the lines that were marked as "// -- line to remove"
-	temp := []string{}
-	for _, line := range originalContent {
-		if line != "// -- "+sign {
-			temp = append(temp, line)
-		}
-	}
-	originalContent = temp
-	output := strings.Join(originalContent, "\n")
+	originalContent = removeSignedLine(originalContent, sign)
+	output := []byte(strings.Join(originalContent, "\n"))
 
 	// write in a temporary file and use "gofmt" to format it
 	//newcontent := []byte(output)
-	var newcontent []byte
-	switch opt.FormatCommand {
-	case "gofmt":
-		// format the temporary file
-		newcontent, err = format.Source([]byte(output))
-		if err != nil {
-			return string(content), errors.New("Failed to format source: " + err.Error())
-		}
-	default:
-		newcontent, err = formatWithCommand(content, output, opt)
-		if err != nil {
-			return string(content), errors.New("Failed to format source: " + err.Error())
-		}
+	newcontent, err := formatSource(content, output, opt)
+	if err != nil {
+		return string(content), err
 	}
 
 	if opt.Diff {
 		return doDiff(content, newcontent, opt.Filename)
 	}
 	return string(newcontent), nil
+}
+
+// findMissingOrderElement finds the missing order element.
+// If the default order is not complete, it will add the missing elements.
+func findMissingOrderElement(opt *ReorderConfig) {
+
+	if len(opt.DefOrder) != len(DefaultOrder) {
+		// wich one is missing?
+		for _, order := range DefaultOrder {
+			found := false
+			for _, defOrder := range opt.DefOrder {
+				if order == defOrder {
+					found = true
+					break
+				}
+			}
+			if !found {
+				// add it to the end
+				opt.DefOrder = append(opt.DefOrder, order)
+			}
+		}
+	}
+}
+
+func sortGoTypes(v []*GoType) {
+	sort.Slice(v, func(i, j int) bool {
+		return v[i].Name < v[j].Name
+	})
+}
+
+func getKeys(m map[string]*GoType) []string {
+	keys := make([]string, len(m))
+	i := 0
+	for k := range m {
+		keys[i] = k
+		i++
+	}
+	return keys
+}
+
+func formatSource(content, output []byte, opt ReorderConfig) ([]byte, error) {
+
+	// write in a temporary file and use "gofmt" to format it
+	//newcontent := []byte(output)
+	var newcontent []byte
+	var err error
+	switch opt.FormatCommand {
+	case "gofmt":
+		// format the temporary file
+		newcontent, err = format.Source([]byte(output))
+		if err != nil {
+			return content, errors.New("Failed to format source: " + err.Error())
+		}
+	default:
+		newcontent, err = formatWithCommand(content, output, opt)
+		if err != nil {
+			return content, errors.New("Failed to format source: " + err.Error())
+		}
+	}
+
+	return newcontent, nil
+}
+
+func removeSignedLine(originalContent []string, sign string) []string {
+	// remove the lines that were marked as "// -- line to remove"
+	temp := []string{}
+	for _, line := range originalContent {
+		if line != reorderSignature+sign {
+			temp = append(temp, line)
+		}
+	}
+
+	return temp
 }
