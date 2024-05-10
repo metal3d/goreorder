@@ -11,13 +11,58 @@ import (
 	"strings"
 )
 
+const reorderSignature = "// -- "
+
 // DefaultOrder is the default order of elements.
 //
 // Note, Init and Main are not in the list. If they are present, the init and main functions
 // will be moved.
 var DefaultOrder = []Order{Const, Var, Interface, Type, Func}
 
-const reorderSignature = "// -- "
+// findMissingOrderElement finds the missing order element.
+// If the default order is not complete, it will add the missing elements.
+func findMissingOrderElement(opt *ReorderConfig) {
+
+	if len(opt.DefOrder) != len(DefaultOrder) {
+		// wich one is missing?
+		for _, order := range DefaultOrder {
+			found := false
+			for _, defOrder := range opt.DefOrder {
+				if order == defOrder {
+					found = true
+					break
+				}
+			}
+			if !found {
+				// add it to the end
+				opt.DefOrder = append(opt.DefOrder, order)
+			}
+		}
+	}
+}
+
+func formatSource(content, output []byte, opt ReorderConfig) ([]byte, error) {
+
+	// write in a temporary file and use "gofmt" to format it
+	//newcontent := []byte(output)
+	var newcontent []byte
+	var err error
+	switch opt.FormatCommand {
+	case "gofmt":
+		// format the temporary file
+		newcontent, err = format.Source([]byte(output))
+		if err != nil {
+			return content, errors.New("Failed to format source: " + err.Error())
+		}
+	default:
+		newcontent, err = formatWithCommand(content, output, opt)
+		if err != nil {
+			return content, errors.New("Failed to format source: " + err.Error())
+		}
+	}
+
+	return newcontent, nil
+}
 
 func formatWithCommand(content []byte, output []byte, opt ReorderConfig) (newcontent []byte, err error) {
 	// we use the format command given by the user
@@ -45,6 +90,16 @@ func formatWithCommand(content []byte, output []byte, opt ReorderConfig) (newcon
 		return content, errors.New("Read Temporary File error: " + err.Error())
 	}
 	return newcontent, nil
+}
+
+func getKeys(m map[string]*GoType) []string {
+	keys := make([]string, len(m))
+	i := 0
+	for k := range m {
+		keys[i] = k
+		i++
+	}
+	return keys
 }
 
 // const and vars
@@ -206,6 +261,24 @@ func processVars(
 	return source
 }
 
+func removeSignedLine(originalContent []string, sign string) []string {
+	// remove the lines that were marked as "// -- line to remove"
+	temp := []string{}
+	for _, line := range originalContent {
+		if line != reorderSignature+sign {
+			temp = append(temp, line)
+		}
+	}
+
+	return temp
+}
+
+func sortGoTypes(v []*GoType) {
+	sort.Slice(v, func(i, j int) bool {
+		return v[i].Name < v[j].Name
+	})
+}
+
 // ReorderSource reorders the source code in the given filename.
 // It will be helped by the formatCommand (gofmt or goimports).
 // If gofmt is used, the source code will be formatted with the go/fmt package in memory.
@@ -361,77 +434,4 @@ func ReorderSource(opt ReorderConfig) (string, error) {
 		return doDiff(content, newcontent, opt.Filename)
 	}
 	return string(newcontent), nil
-}
-
-// findMissingOrderElement finds the missing order element.
-// If the default order is not complete, it will add the missing elements.
-func findMissingOrderElement(opt *ReorderConfig) {
-
-	if len(opt.DefOrder) != len(DefaultOrder) {
-		// wich one is missing?
-		for _, order := range DefaultOrder {
-			found := false
-			for _, defOrder := range opt.DefOrder {
-				if order == defOrder {
-					found = true
-					break
-				}
-			}
-			if !found {
-				// add it to the end
-				opt.DefOrder = append(opt.DefOrder, order)
-			}
-		}
-	}
-}
-
-func sortGoTypes(v []*GoType) {
-	sort.Slice(v, func(i, j int) bool {
-		return v[i].Name < v[j].Name
-	})
-}
-
-func getKeys(m map[string]*GoType) []string {
-	keys := make([]string, len(m))
-	i := 0
-	for k := range m {
-		keys[i] = k
-		i++
-	}
-	return keys
-}
-
-func formatSource(content, output []byte, opt ReorderConfig) ([]byte, error) {
-
-	// write in a temporary file and use "gofmt" to format it
-	//newcontent := []byte(output)
-	var newcontent []byte
-	var err error
-	switch opt.FormatCommand {
-	case "gofmt":
-		// format the temporary file
-		newcontent, err = format.Source([]byte(output))
-		if err != nil {
-			return content, errors.New("Failed to format source: " + err.Error())
-		}
-	default:
-		newcontent, err = formatWithCommand(content, output, opt)
-		if err != nil {
-			return content, errors.New("Failed to format source: " + err.Error())
-		}
-	}
-
-	return newcontent, nil
-}
-
-func removeSignedLine(originalContent []string, sign string) []string {
-	// remove the lines that were marked as "// -- line to remove"
-	temp := []string{}
-	for _, line := range originalContent {
-		if line != reorderSignature+sign {
-			temp = append(temp, line)
-		}
-	}
-
-	return temp
 }

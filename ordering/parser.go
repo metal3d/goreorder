@@ -196,39 +196,6 @@ func findGlobalVarsAndConsts(d *ast.GenDecl, fset *token.FileSet, sourceLines []
 	}
 }
 
-func parseConstantAndVars(name *ast.Ident, d *ast.GenDecl, fset *token.FileSet, sourceLines []string, varTypes, constTypes map[string]*GoType) {
-
-	// log the source code for the variable or constant
-	varDef := &GoType{
-		Name:        name.Name,
-		OpeningLine: fset.Position(d.Pos()).Line,
-		ClosingLine: fset.Position(d.End()).Line,
-	}
-	comments := GetTypeComments(d)
-	if len(comments) > 0 {
-		varDef.SourceCode = strings.Join(comments, "\n") + "\n"
-	}
-	varDef.SourceCode += strings.Join(sourceLines[varDef.OpeningLine-1:varDef.ClosingLine], "\n")
-	varDef.OpeningLine -= len(comments)
-
-	// this time, if const or vars are defined in a parenthesis, the source code is the same for all
-	// found var or const. So, what we do is to check if the source code is already in the map, and if
-	// so, we skip it.
-	// we will use the source code signature as the key for the map
-	signature := fmt.Sprintf("%d-%d", varDef.OpeningLine, varDef.ClosingLine)
-	if _, ok := varTypes[signature]; ok {
-		return
-	}
-
-	switch d.Tok {
-	case token.CONST:
-		constTypes[signature] = varDef
-	case token.VAR:
-		varTypes[signature] = varDef
-	}
-
-}
-
 func findInterfaces(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, interfaceNames *StingList, interfaceTypes map[string]*GoType) {
 	// finc interfaces
 	if d.Tok != token.TYPE {
@@ -318,6 +285,39 @@ func findTypes(d *ast.GenDecl, fset *token.FileSet, sourceLines []string, typeNa
 			typeNames.Add(s.Name.Name)
 		}
 	}
+}
+
+func parseConstantAndVars(name *ast.Ident, d *ast.GenDecl, fset *token.FileSet, sourceLines []string, varTypes, constTypes map[string]*GoType) {
+
+	// log the source code for the variable or constant
+	varDef := &GoType{
+		Name:        name.Name,
+		OpeningLine: fset.Position(d.Pos()).Line,
+		ClosingLine: fset.Position(d.End()).Line,
+	}
+	comments := GetTypeComments(d)
+	if len(comments) > 0 {
+		varDef.SourceCode = strings.Join(comments, "\n") + "\n"
+	}
+	varDef.SourceCode += strings.Join(sourceLines[varDef.OpeningLine-1:varDef.ClosingLine], "\n")
+	varDef.OpeningLine -= len(comments)
+
+	// this time, if const or vars are defined in a parenthesis, the source code is the same for all
+	// found var or const. So, what we do is to check if the source code is already in the map, and if
+	// so, we skip it.
+	// we will use the source code signature as the key for the map
+	signature := fmt.Sprintf("%d-%d", varDef.OpeningLine, varDef.ClosingLine)
+	if _, ok := varTypes[signature]; ok {
+		return
+	}
+
+	switch d.Tok {
+	case token.CONST:
+		constTypes[signature] = varDef
+	case token.VAR:
+		varTypes[signature] = varDef
+	}
+
 }
 
 func inConstructors(constructorMap map[string][]*GoType, funcname string) bool {
